@@ -1,0 +1,277 @@
+/* App Layout */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-background);
+  color: var(--text-primary);
+}
+
+/* Header */
+.app-header {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-primary);
+  padding: 1rem 0;
+  box-shadow: var(--shadow-sm);
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo-icon {
+  font-size: 2rem;
+  color: var(--primary-color);
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: var(--bg-accents-1);
+}
+
+/* Main Content */
+.app-main {
+  flex: 1;
+  padding: 0;
+  position: relative;
+  display: flex;
+}
+
+/* Sidebar fijo con botón de flecha */
+.sidebar-fixed {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-primary);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(0);
+}
+
+/* Allow the toggle to overflow the sidebar edge so the curved shape can overlap cleanly */
+.sidebar-fixed {
+  overflow: visible;
+}
+
+.sidebar-fixed.collapsed {
+  transform: translateX(-320px);
+}
+
+/* Botón toggle profesional - Diseño moderno y elegante */
+.sidebar-toggle-arrow {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 102;
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+/* Estados hover */
+.sidebar-toggle-arrow:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
+.sidebar-toggle-arrow:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* Estado colapsado */
+.sidebar-fixed.collapsed .sidebar-toggle-arrow {
+  right: -40px;
+}
+
+/* Contenido del sidebar */
+.sidebar-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+/* Container principal */
+.main-container {
+  margin-left: 320px;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-top: 2rem;
+  width: 100%;
+}
+
+.sidebar-fixed.collapsed ~ .main-container {
+  margin-left: 0;
+}
+
+.content-area {
+  width: 100%;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 10px;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card-active {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.stat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stat-icon {
+  font-size: 1.25rem;
+  color: var(--primary-color);
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Messages */
+.error-message {
+  background-color: var(--error-light);
+  color: var(--error);
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.welcome-message {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-secondary);
+}
+
+.welcome-icon {
+  font-size: 4rem;
+  color: var(--border-secondary);
+  margin-bottom: 1rem;
+}
+
+.welcome-message h2 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+/* Footer */
+.app-footer {
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-primary);
+  padding: 1.5rem 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .sidebar-fixed {
+    transform: translateX(-320px);
+  }
+
+  .sidebar-fixed.expanded {
+    transform: translateX(0);
+  }
+
+  .main-container {
+    margin-left: 0;
+  }
+
+  .sidebar-toggle-arrow {
+    right: -30px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,28 @@
+/* Estado del Flujo Banner */
+.estado-flujo-banner {
+  background: linear-gradient(
+    135deg,
+    var(--primary-color),
+    var(--dibiagi-blue)
+  );
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  text-align: center;
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.estado-flujo-banner h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.estado-flujo-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}

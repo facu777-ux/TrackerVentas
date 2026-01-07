@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    /* --- Paleta Base DIBIAGI --- */
+    --dibiagi-blue: #003399;
+    --dibiagi-red: #CC0000;
+
+    /* --- Tokens por defecto (Light Mode) --- */
+    --bg-background: #ffffff;
+    --bg-accents-1: #fafafa;
+    --bg-accents-2: #eaeaea;
+    --bg-surface: #ffffff;
+
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --text-tertiary: #888888;
+
+    --border-primary: #eaeaea;
+    --border-secondary: #dddddd;
+
+    --primary-color: var(--dibiagi-blue);
+    --primary-fg: #ffffff;
+    --secondary-color: var(--dibiagi-red);
+
+    --success-light: #dcfce7;
+    --success: #10b981;
+    --success-color: #10b981;
+    --warning-light: #fef3c7;
+    --warning: #f59e0b;
+    --warning-color: #f59e0b;
+    --error-light: #fee2e2;
+    --error: #ef4444;
+    --danger-color: #ef4444;
+
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+    --radius: 6px;
+
+    /* Aliases para compatibilidad */
+    --card-bg: var(--bg-surface);
+    --dark-bg: var(--bg-accents-1);
+    --border-color: var(--border-primary);
+    --primary-light: #0055ff;
+
+    /* Overlay del modal */
+    --overlay-rgb: 250, 250, 250;
+}
+
+[data-theme='dark'] {
+    /* --- Tokens Dark Mode (Vercel Style) --- */
+    --bg-background: #000000;
+    --bg-accents-1: #111111;
+    --bg-accents-2: #333333;
+    --bg-surface: #0a0a0a;
+
+    --text-primary: #ffffff;
+    --text-secondary: #888888;
+    --text-tertiary: #666666;
+
+    --border-primary: #333333;
+    --border-secondary: #444444;
+
+    /* Ajuste del azul para mejor contraste en oscuro */
+    --primary-color: #3291ff;
+    --primary-fg: #000000;
+
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-hover: 0 8px 30px rgba(0, 0, 0, 0.7);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.8);
+
+    /* Aliases para compatibilidad */
+    --card-bg: var(--bg-surface);
+    --dark-bg: var(--bg-accents-2);
+    --border-color: var(--border-primary);
+    --primary-light: #5aa3ff;
+
+    /* Overlay del modal */
+    --overlay-rgb: 17, 17, 17;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-background);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-background);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-primary);
+    border-radius: 5px;
+    border: 2px solid var(--bg-background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* Utilidades */
+.container {
+    max-width: 98%;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
