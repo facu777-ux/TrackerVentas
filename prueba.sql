@@ -78,6 +78,27 @@ SELECT DISTINCT
     gt.USR_GTMVIH_CODIGO AS CodCar,
     gt.USR_GTMVIH_CODFOR AS CodPR,
     gt.USR_GTMVIH_NROFOR AS NroPR,
+    -- Necesito agregar estos campos para agregar detalle respecto de las Cargas
+    Case 
+        When gt.USR_GTMVIH_TIPVIA = 'E' Then 'Exclusivo'
+        When gt.USR_GTMVIH_TIPVIA = 'C' Then 'Consolidado'
+        Else 'No especificado'
+    End as TipoViaje,
+    Case 
+        When gt.USR_GTMVIH_TIPOPE = 'P' Then 'Propia'
+        When gt.USR_GTMVIH_TIPOPE = 'T' Then 'De Terceros'
+        Else 'No especificado'
+    End as TipoOperacion,
+    vta.VTMCLH_NOMBRE AS RemitenteOP,
+    vtb.VTMCLH_NOMBRE AS DestinatarioOP,
+    gt.USR_GTMVIH_FCHCAR AS FechaCarga,
+    gt.USR_GTMVIH_FCHENT AS FechaEntrega,
+    locA.USR_GTTLOH_DESCRP AS LocalizacionCargaOP,
+    locB.USR_GTTLOH_DESCRP AS LocalizacionEntregaOP,
+    gt.USR_GTMVIH_DOMREM AS DomicilioCarga,
+    gt.USR_GTMVIH_DOMDES AS DomicilioDescarga,
+    -- Hasta acá
+
     i.USR_GTMVII_CODEMP AS EmpreI,
     i.USR_GTMVII_CLIENT AS [Cliente a Facturar],
     i.USR_GTMVII_CODFAC AS CodFac,
@@ -88,6 +109,12 @@ FROM USR_GTMVIH gt WITH (NOLOCK)
     INNER JOIN USR_GTMVII i WITH (NOLOCK)
         ON gt.USR_GTMVIH_CODIGO = i.USR_GTMVII_CODIGO
         AND gt.USR_GTMVIH_CODEMP = i.USR_GTMVII_CODEMP
+    -- Para los campos USR_GTMVIH_REMITE y USR_GTMVIH_DESTIN (es a la misma tabla, solo que son dos campos que comparten el mismo valor de la misma tabla)
+    INNER JOIN VTMCLH vta ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
+    INNER JOIN VTMCLH vtb ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
+    INNER JOIN USR_GTTLOH locA ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
+    INNER JOIN USR_GTTLOH locB ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
+
 WHERE 
     gt.USR_GTMVIH_CODFOR = 'PR'
     AND EXISTS (
@@ -182,6 +209,14 @@ SELECT
     gt.EmpreCarga AS EmpresaCarga,
     gt.CodCar AS CodigoCarga,
     gt.FecAltOPItems AS FecAltCarga,
+    gt.RemitenteOP,
+    gt.DestinatarioOP,
+    gt.TipoViaje, 
+    gt.TipoOperacion,
+    gt.LocalizacionCargaOP,
+    gt.LocalizacionEntregaOP,
+    gt.DomicilioCarga,
+    gt.DomicilioDescarga,
 
     -- DATOS DE FACTURA (puede ser NULL si carga sin factura)
     CASE 
@@ -278,6 +313,14 @@ SELECT
     gt.EmpreCarga,
     gt.CodCar,
     gt.FecAltOPItems,
+    gt.RemitenteOP,
+    gt.DestinatarioOP,
+    gt.TipoViaje, 
+    gt.TipoOperacion,
+    gt.LocalizacionCargaOP,
+    gt.LocalizacionEntregaOP,
+    gt.DomicilioCarga,
+    gt.DomicilioDescarga,
     
     -- DATOS DE FACTURA
     CASE 

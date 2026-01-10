@@ -87,7 +87,28 @@ router.post("/", async (req, res) => {
                 gt.USR_GTMVIH_CODIGO AS CodCar,
                 gt.USR_GTMVIH_CODFOR AS CodPR,
                 gt.USR_GTMVIH_NROFOR AS NroPR,
+                -- Campos adicionales de carga
+                Case 
+                    When gt.USR_GTMVIH_TIPVIA = 'E' Then 'Exclusivo'
+                    When gt.USR_GTMVIH_TIPVIA = 'C' Then 'Consolidado'
+                    Else 'No especificado'
+                End as TipoViaje,
+                Case 
+                    When gt.USR_GTMVIH_TIPOPE = 'P' Then 'Propia'
+                    When gt.USR_GTMVIH_TIPOPE = 'T' Then 'De Terceros'
+                    Else 'No especificado'
+                End as TipoOperacion,
+                vta.VTMCLH_NOMBRE AS RemitenteOP,
+                vtb.VTMCLH_NOMBRE AS DestinatarioOP,
+                gt.USR_GTMVIH_FCHCAR AS FechaCarga,
+                gt.USR_GTMVIH_FCHENT AS FechaEntrega,
+                locA.USR_GTTLOH_DESCRP AS LocalizacionCargaOP,
+                locB.USR_GTTLOH_DESCRP AS LocalizacionEntregaOP,
+                gt.USR_GTMVIH_DOMREM AS DomicilioCarga,
+                gt.USR_GTMVIH_DOMDES AS DomicilioDescarga,
+
                 i.USR_GTMVII_CODEMP AS EmpreI,
+                i.USR_GTMVII_CLIENT AS [Cliente a Facturar],
                 i.USR_GTMVII_CODFAC AS CodFac,
                 i.USR_GTMVII_NROFAC AS NroFac,
                 i.USR_GT_FECALT AS FecAltOPItems
@@ -96,6 +117,11 @@ router.post("/", async (req, res) => {
                 INNER JOIN USR_GTMVII i WITH (NOLOCK)
                     ON gt.USR_GTMVIH_CODIGO = i.USR_GTMVII_CODIGO
                     AND gt.USR_GTMVIH_CODEMP = i.USR_GTMVII_CODEMP
+                -- JOINs para nombres y localizaciones
+                INNER JOIN VTMCLH vta ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
+                INNER JOIN VTMCLH vtb ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
+                INNER JOIN USR_GTTLOH locA ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
+                INNER JOIN USR_GTTLOH locB ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
             WHERE 
                 gt.USR_GTMVIH_CODFOR = 'PR'
                 AND EXISTS (
@@ -190,6 +216,14 @@ router.post("/", async (req, res) => {
                 gt.EmpreCarga AS EmpresaCarga,
                 gt.CodCar AS CodigoCarga,
                 gt.FecAltOPItems AS FecAltCarga,
+                gt.RemitenteOP,
+                gt.DestinatarioOP,
+                gt.TipoViaje, 
+                gt.TipoOperacion,
+                gt.LocalizacionCargaOP,
+                gt.LocalizacionEntregaOP,
+                gt.DomicilioCarga,
+                gt.DomicilioDescarga,
                 
                 -- DATOS DE FACTURA (puede ser NULL si carga sin factura)
                 CASE 
@@ -286,6 +320,14 @@ router.post("/", async (req, res) => {
                 gt.EmpreCarga,
                 gt.CodCar,
                 gt.FecAltOPItems,
+                gt.RemitenteOP,
+                gt.DestinatarioOP,
+                gt.TipoViaje, 
+                gt.TipoOperacion,
+                gt.LocalizacionCargaOP,
+                gt.LocalizacionEntregaOP,
+                gt.DomicilioCarga,
+                gt.DomicilioDescarga,
                 
                 -- DATOS DE FACTURA
                 CASE 

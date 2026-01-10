@@ -214,15 +214,32 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
     const renderLogisticaTab = () => (
         <div className="tab-pane fade-in">
             <div className="details-card">
-                <div className="detail-row">
-                    <label>Código de Carga:</label>
-                    <span className="highlight-text">{item.CodigoCarga || 'Pendiente'}</span>
+                <div className="info-grid-simple" style={{ marginBottom: '1.5rem' }}>
+                    <div className="info-block">
+                        <h4 className="block-title"><FaTruck /> Operación</h4>
+                        <p><strong>Código de Carga:</strong> <span className="highlight-text">{item.CodigoCarga || 'Pendiente'}</span></p>
+                        <p><strong>Tipo de Viaje:</strong> {item.TipoViaje || '-'}</p>
+                        <p><strong>Tipo de Operación:</strong> {item.TipoOperacion || '-'}</p>
+                        <p><strong>Fecha Carga:</strong> {formatFecha(item.FecAltCarga)}</p>
+                    </div>
                 </div>
-                <div className="detail-row">
-                    <label>Fecha Carga:</label>
-                    <span>{formatFecha(item.FecAltCarga)}</span>
+
+                <div className="info-grid-simple">
+                    <div className="info-block">
+                        <h4 className="block-title"><FaBuilding /> Origen / Remitente</h4>
+                        <p><strong>Remitente:</strong> {item.RemitenteOP || '-'}</p>
+                        <p><strong>Localización:</strong> {item.LocalizacionCargaOP || '-'}</p>
+                        <p><strong>Domicilio:</strong> {item.DomicilioCarga || '-'}</p>
+                    </div>
+                    <div className="info-block">
+                        <h4 className="block-title"><FaBuilding /> Destino / Entrega</h4>
+                        <p><strong>Destinatario:</strong> {item.DestinatarioOP || '-'}</p>
+                        <p><strong>Localización:</strong> {item.LocalizacionEntregaOP || '-'}</p>
+                        <p><strong>Domicilio:</strong> {item.DomicilioDescarga || '-'}</p>
+                    </div>
                 </div>
-                <div className="detail-row full">
+
+                <div className="detail-row full" style={{ marginTop: '1rem' }}>
                     <label>Descripción del Viaje:</label>
                     <p className="description-text">{item.DescrpViaj || 'Sin descripción'}</p>
                 </div>
