@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: TrackerVentas - backend
+    name: trackerventas-docker
     runtime: docker
     dockerContext: backend
     dockerfilePath: backend/Dockerfile
