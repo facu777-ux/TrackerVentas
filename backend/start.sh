@@ -6,7 +6,7 @@ echo "🔧 Iniciando Tailscale daemon..."
 /usr/local/bin/tailscaled --tun=userspace-networking --state=/var/lib/tailscale/tailscaled.state &
 
 # 2. Esperar a que tailscaled inicie correctamente
-sleep 3
+sleep 10
 
 echo "🔐 Conectando a la red Tailscale..."
 
