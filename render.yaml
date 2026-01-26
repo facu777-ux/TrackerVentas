@@ -3,8 +3,8 @@ services:
     name: TrackerVentas - backend
     runtime: docker
     dockerContext: backend
-    dockerfilePath: Dockerfile
-    plan: free # O el plan que el usuario use, pero por defecto Blueprint puede configurarlo
+    dockerfilePath: backend/Dockerfile
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
