@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: TrackerVentas - backend
+    runtime: docker
+    dockerContext: backend
+    dockerfilePath: Dockerfile
+    plan: free # O el plan que el usuario use, pero por defecto Blueprint puede configurarlo
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TAILSCALE_AUTHKEY
+        sync: false
+      - key: DB_SERVER
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_ENCRYPT
+        value: "false"
+      - key: DB_TRUST_SERVER_CERTIFICATE
+        value: "true"

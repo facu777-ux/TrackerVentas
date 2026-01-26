@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: TrackerVentas - backend
-    runtime: docker
-    envVars:
-      - key: NODE_ENV
-        value: production

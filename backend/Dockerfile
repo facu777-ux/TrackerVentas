@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y ca-certificates iptables && rm -rf /var
 COPY --from=tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
 COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
 
+# Preparamos directorios para Tailscale
+RUN mkdir -p /var/lib/tailscale /var/cache/tailscale /var/run/tailscale
+
 # Preparamos nuestra app
 WORKDIR /app
 
