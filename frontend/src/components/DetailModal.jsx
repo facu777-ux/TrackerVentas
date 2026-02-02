@@ -274,6 +274,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                             <th>Cant.</th>
                             <th>Precio</th>
                             <th>Subtotal</th>
+                            <th>Comprobante</th>
+                            <th>Cliente a Facturar</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -283,6 +285,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                                 <td>{ri.Cantidad}</td>
                                 <td>{formatMonto(ri.Precio)}</td>
                                 <td className="bold">{formatMonto(ri.TotalItem)}</td>
+                                <td>{ri.FacturaAsociadaOP || '-'}</td>
+                                <td className="client-cell">{ri.NomCliente || '-'}</td>
                             </tr>
                         ))}
                     </tbody>

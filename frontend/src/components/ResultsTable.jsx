@@ -116,11 +116,31 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                 groups[presupuestoKey] = {
                     presupuesto: item.NroPR || item.NroSolicitud,
                     key: presupuestoKey,
-                    info: item, // Guardamos la info del presupuesto
+                    info: { ...item }, // Copia inicial
+                    items: [],      // Array para guardar todos los items crudos del PR
                     cargas: {},
-                    maxFecha: item.FchMovimiento || item.FchAltaRegistro, // Para ordenar presupuestos
-                    budgetTotal: 0 // Nuevo campo para el total administrativo
+                    budgetTotal: 0,
+                    maxFecha: item.FchMovimiento || item.FchAltaRegistro
                 };
+            }
+            // Guardar item crudo para uso posterior (detalle)
+            groups[presupuestoKey].items.push(item);
+
+            // LOGICA MULTI-CLIENTE Y MULTI-FACTURA:
+            if (!groups[presupuestoKey].clientSet) groups[presupuestoKey].clientSet = new Set();
+            if (!groups[presupuestoKey].invoiceSet) groups[presupuestoKey].invoiceSet = new Set();
+            
+            if (item.NomCliente) groups[presupuestoKey].clientSet.add(item.NomCliente);
+            if (item.FacturaAsociadaOP && 
+                !item.FacturaAsociadaOP.includes('Pendiente') && 
+                !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) {
+                groups[presupuestoKey].invoiceSet.add(item.FacturaAsociadaOP);
+            }
+
+            // Actualizar fecha máxima
+            const itemFecha = item.FchMovimiento || item.FchAltaRegistro;
+            if (itemFecha && (!groups[presupuestoKey].maxFecha || new Date(itemFecha) > new Date(groups[presupuestoKey].maxFecha))) {
+                groups[presupuestoKey].maxFecha = itemFecha;
             }
 
             // Sumar al total del presupuesto
@@ -192,8 +212,34 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             return fechaB - fechaA;
         });
 
-        // Ordenar cargas y facturas dentro de cada presupuesto
+        // Procesamiento final de grupos
         presupuestosArray.forEach(presupuesto => {
+            // APLANA NOMBRES DE CLIENTES
+            if (presupuesto.clientSet && presupuesto.clientSet.size > 0) {
+                const uniqueClients = Array.from(presupuesto.clientSet);
+                if (uniqueClients.length > 1) {
+                    // Si hay varios, unirlos. Ej: "Cliente A + Cliente B"
+                    presupuesto.info.NomCliente = uniqueClients.join(' + ');
+                    // Opcional: Agregar flag para mostrar tooltip especial?
+                    presupuesto.info.isMultiClient = true; 
+                    presupuesto.info.individualClients = uniqueClients;
+                } else {
+                    presupuesto.info.NomCliente = uniqueClients[0];
+                }
+            }
+
+            // APLANA FACTURAS
+            if (presupuesto.invoiceSet && presupuesto.invoiceSet.size > 0) {
+                const uniqueInvoices = Array.from(presupuesto.invoiceSet);
+                if (uniqueInvoices.length > 1) {
+                    presupuesto.info.FacturaAsociadaOP = 'Varios Comprobantes';
+                    presupuesto.info.isMultiInvoice = true;
+                    presupuesto.info.individualInvoices = uniqueInvoices;
+                } else {
+                    presupuesto.info.FacturaAsociadaOP = uniqueInvoices[0];
+                }
+            }
+
             // Convertir cargas a array y ordenar por fecha descendente
             const cargasArray = Object.values(presupuesto.cargas).sort((a, b) => {
                 const fechaA = new Date(a.maxFecha);
@@ -339,6 +385,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             'Precio Unitario': item.Precio || 0,
             'Total Item': item.TotalItem || 0,
             'Código Carga': item.CodigoCarga || '-',
+            'Cliente a Facturar': item.ClienteAFacturar || '-',
             'Nro CRT': item.NroCRT || '-',
             'Fecha Alta Carga': formatFecha(item.FecAltCarga),
             'Factura': item.FacturaAsociadaOP || '-',

@@ -109,10 +109,13 @@ router.post("/", async (req, res) => {
                 gt.USR_GTMVIH_DOMDES AS DomicilioDescarga,
 
                 i.USR_GTMVII_CODEMP AS EmpreI,
-                i.USR_GTMVII_CLIENT AS [Cliente a Facturar],
+                i.USR_GTMVII_CLIENT AS [Codigo Cliente a Facturar],
+                vtc.VTMCLH_NOMBRE AS NomClientFacturar,
                 i.USR_GTMVII_CODFAC AS CodFac,
                 i.USR_GTMVII_NROFAC AS NroFac,
-                i.USR_GT_FECALT AS FecAltOPItems
+                i.USR_GT_FECALT AS FecAltOPItems,
+                i.USR_GTMVII_NROITM AS NroItmCarga,
+                i.USR_VIRT_TOTLIN AS TotalItemCarga
             INTO #Cargas
             FROM USR_GTMVIH gt WITH (NOLOCK)
                 INNER JOIN USR_GTMVII i WITH (NOLOCK)
@@ -121,6 +124,7 @@ router.post("/", async (req, res) => {
                 -- JOINs para nombres y localizaciones
                 INNER JOIN VTMCLH vta ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
                 INNER JOIN VTMCLH vtb ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
+                INNER JOIN VTMCLH vtc ON i.USR_GTMVII_CLIENT = vtc.VTMCLH_NROCTA
                 INNER JOIN USR_GTTLOH locA ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
                 INNER JOIN USR_GTTLOH locB ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
             WHERE 
@@ -192,8 +196,8 @@ router.post("/", async (req, res) => {
                 pr.FCRMVH_NROFOR AS NroPR,
                 pr.FCRMVH_FCHMOV AS FchMovimiento,
                 pr.FCRMVH_FECALT AS FchAltaRegistro,
-                pr.FCRMVH_NROCTA AS CodCliente,
-                cl.VTMCLH_NOMBRE AS NomCliente,
+                cl.VTMCLH_NROCTA AS CodCliente,
+                ISNULL(gt.NomClientFacturar, cl.VTMCLH_NOMBRE) AS NomCliente,
                 pr.USR_FCRMVH_CONTAC AS ContactoDeCliente,
                 pr.FCRMVH_TEXTOS AS ObservacionesPR,
                 pr.USR_FCRMVH_DESVIAJ AS DescrpViaj,
@@ -202,21 +206,22 @@ router.post("/", async (req, res) => {
                 usd.STTLPR_DESCRP AS ListaPrecio,
                 CnPag.VTTCPH_DESCRP AS CondicionPago,
                 
-                -- DATOS DE ITEMS (puede ser NULL si solo hay solicitud)
-                i.FCRMVI_NROITM AS NroItm,
+                -- DATOS DE ITEMS (unión de PR y Carga)
+                itms.NroItm,
                 i.FCRMVI_TIPPRO AS TipPro,
                 i.FCRMVI_ARTCOD AS ArtCod,
-                sth.STMPDH_DESCRP AS DescrpProd,
-                i.FCRMVI_CANTID AS Cantidad,
+                ISNULL(sth.STMPDH_DESCRP, '(Item Adicional en Carga)') AS DescrpProd,
+                ISNULL(i.FCRMVI_CANTID, 0) AS Cantidad,
                 sth.STMPDH_UNIMED AS UnidadMedida,
-                i.FCRMVI_PRECIO AS Precio,
-                i.FCRMVI_TOTLIN AS TotalItem,
+                ISNULL(i.FCRMVI_PRECIO, 0) AS Precio,
+                ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga) AS TotalItem,
                 i.FCRMVI_TEXTOS AS ObservacionesItem,
                 
                 -- DATOS DE CARGA (puede ser NULL si PR sin carga)
                 gt.EmpreCarga AS EmpresaCarga,
                 gt.CodCar AS CodigoCarga,
                 gt.NroCRT,
+                gt.NomClientFacturar AS ClienteAFacturar,
                 gt.FecAltOPItems AS FecAltCarga,
                 gt.RemitenteOP,
                 gt.DestinatarioOP,
@@ -246,11 +251,27 @@ router.post("/", async (req, res) => {
                     ON sol.EmpresaSolicitud = pr.FCRMVH_CODEMP
                     AND sol.NroSolicitud = pr.SolicitudAplica
                 
-                -- LEFT JOIN para datos del presupuesto (solo si existe PR)
+                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas para no perder items agregados en carga
+                CROSS APPLY (
+                    SELECT FCRMVI_NROITM AS NroItm FROM FCRMVI i2 WITH (NOLOCK)
+                    WHERE pr.FCRMVH_CODFOR = i2.FCRMVI_CODFOR AND pr.FCRMVH_NROFOR = i2.FCRMVI_NROFOR AND pr.FCRMVH_CODEMP = i2.FCRMVI_CODEMP
+                    UNION
+                    SELECT NroItmCarga FROM #Cargas gt2 
+                    WHERE pr.FCRMVH_CODFOR = gt2.CodPR AND pr.FCRMVH_NROFOR = gt2.NroPR AND pr.FCRMVH_CODEMP = gt2.EmpreCarga
+                ) itms
+                
                 LEFT JOIN FCRMVI i WITH (NOLOCK)
                     ON pr.FCRMVH_CODFOR = i.FCRMVI_CODFOR 
                     AND pr.FCRMVH_NROFOR = i.FCRMVI_NROFOR
                     AND pr.FCRMVH_CODEMP = i.FCRMVI_CODEMP
+                    AND itms.NroItm = i.FCRMVI_NROITM
+                    
+                LEFT JOIN #Cargas gt
+                    ON pr.FCRMVH_CODFOR = gt.CodPR
+                    AND pr.FCRMVH_NROFOR = gt.NroPR
+                    AND pr.FCRMVH_CODEMP = gt.EmpreCarga
+                    AND itms.NroItm = gt.NroItmCarga
+                
                 LEFT JOIN VTMCLH cl WITH (NOLOCK)
                     ON pr.FCRMVH_NROCTA = cl.VTMCLH_NROCTA
                 LEFT JOIN STTLPR usd WITH (NOLOCK)
@@ -261,17 +282,11 @@ router.post("/", async (req, res) => {
                 LEFT JOIN VTTCPH CnPag WITH (NOLOCK)
                     ON pr.FCRMVH_CNDPAG = CnPag.VTTCPH_CNDPAG
                 
-                -- LEFT JOIN para ver PRs sin carga
-                LEFT JOIN #Cargas gt
-                    ON pr.FCRMVH_CODFOR = gt.CodPR
-                    AND pr.FCRMVH_NROFOR = gt.NroPR
-                    AND pr.FCRMVH_CODEMP = gt.EmpreCarga
-                
-                -- LEFT JOIN para ver facturas sin recibo
                 LEFT JOIN #Recibos rc
                     ON gt.EmpreI = rc.EmpRC
                     AND gt.CodFac = rc.CodFact
                     AND gt.NroFac = rc.NroFact
+            WHERE (@ClienteFiltro IS NULL OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%')
 
             -- Agregar PRs que NO tienen solicitud (creados directamente)
             UNION ALL
@@ -298,7 +313,7 @@ router.post("/", async (req, res) => {
                 pr.FCRMVH_FCHMOV,
                 pr.FCRMVH_FECALT,
                 pr.FCRMVH_NROCTA,
-                cl.VTMCLH_NOMBRE,
+                ISNULL(gt.NomClientFacturar, cl.VTMCLH_NOMBRE) AS NomCliente,
                 pr.USR_FCRMVH_CONTAC,
                 pr.FCRMVH_TEXTOS,
                 pr.USR_FCRMVH_DESVIAJ,
@@ -308,20 +323,21 @@ router.post("/", async (req, res) => {
                 CnPag.VTTCPH_DESCRP,
                 
                 -- DATOS DE ITEMS
-                i.FCRMVI_NROITM,
+                itms.NroItm,
                 i.FCRMVI_TIPPRO,
                 i.FCRMVI_ARTCOD,
-                sth.STMPDH_DESCRP,
-                i.FCRMVI_CANTID,
+                ISNULL(sth.STMPDH_DESCRP, '(Item Adicional en Carga)'),
+                ISNULL(i.FCRMVI_CANTID, 0),
                 sth.STMPDH_UNIMED,
-                i.FCRMVI_PRECIO,
-                i.FCRMVI_TOTLIN,
+                ISNULL(i.FCRMVI_PRECIO, 0),
+                ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga),
                 i.FCRMVI_TEXTOS,
                 
                 -- DATOS DE CARGA
                 gt.EmpreCarga,
                 gt.CodCar,
                 gt.NroCRT,
+                gt.NomClientFacturar AS ClienteAFacturar,
                 gt.FecAltOPItems,
                 gt.RemitenteOP,
                 gt.DestinatarioOP,
@@ -351,11 +367,27 @@ router.post("/", async (req, res) => {
                     ON pr.FCRMVH_CODEMP = sol.EmpresaSolicitud
                     AND pr.SolicitudAplica = sol.NroSolicitud
                 
-                -- LEFT JOINs con datos del PR
+                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas
+                CROSS APPLY (
+                    SELECT FCRMVI_NROITM AS NroItm FROM FCRMVI i2 WITH (NOLOCK)
+                    WHERE pr.FCRMVH_CODFOR = i2.FCRMVI_CODFOR AND pr.FCRMVH_NROFOR = i2.FCRMVI_NROFOR AND pr.FCRMVH_CODEMP = i2.FCRMVI_CODEMP
+                    UNION
+                    SELECT NroItmCarga FROM #Cargas gt2 
+                    WHERE pr.FCRMVH_CODFOR = gt2.CodPR AND pr.FCRMVH_NROFOR = gt2.NroPR AND pr.FCRMVH_CODEMP = gt2.EmpreCarga
+                ) itms
+                
                 LEFT JOIN FCRMVI i WITH (NOLOCK)
                     ON pr.FCRMVH_CODFOR = i.FCRMVI_CODFOR 
                     AND pr.FCRMVH_NROFOR = i.FCRMVI_NROFOR
                     AND pr.FCRMVH_CODEMP = i.FCRMVI_CODEMP
+                    AND itms.NroItm = i.FCRMVI_NROITM
+                    
+                LEFT JOIN #Cargas gt
+                    ON pr.FCRMVH_CODFOR = gt.CodPR
+                    AND pr.FCRMVH_NROFOR = gt.NroPR
+                    AND pr.FCRMVH_CODEMP = gt.EmpreCarga
+                    AND itms.NroItm = gt.NroItmCarga
+                    
                 LEFT JOIN VTMCLH cl WITH (NOLOCK)
                     ON pr.FCRMVH_NROCTA = cl.VTMCLH_NROCTA
                 LEFT JOIN STTLPR usd WITH (NOLOCK)
@@ -366,18 +398,13 @@ router.post("/", async (req, res) => {
                 LEFT JOIN VTTCPH CnPag WITH (NOLOCK)
                     ON pr.FCRMVH_CNDPAG = CnPag.VTTCPH_CNDPAG
                 
-                -- LEFT JOINs para carga, factura y recibo
-                LEFT JOIN #Cargas gt
-                    ON pr.FCRMVH_CODFOR = gt.CodPR
-                    AND pr.FCRMVH_NROFOR = gt.NroPR
-                    AND pr.FCRMVH_CODEMP = gt.EmpreCarga
                 LEFT JOIN #Recibos rc
                     ON gt.EmpreI = rc.EmpRC
                     AND gt.CodFac = rc.CodFact
                     AND gt.NroFac = rc.NroFact
                     
             WHERE sol.NroSolicitud IS NULL
-                AND (@ClienteFiltro IS NULL OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
+                AND (@ClienteFiltro IS NULL OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%')
 
             ORDER BY 
                 FecAltCarga DESC,
