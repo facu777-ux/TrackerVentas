@@ -21,28 +21,77 @@ import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
 import './ResultsTable.css';
 
-const ResultsTable = ({ data, loading }) => {
+const ResultsTable = ({ data, loading, activeFilter }) => {
+    // Helpers (Definidos antes de ser usados en useMemo para evitar TDZ)
+    const getEstadoInfo = (item) => {
+        const factura = item.FacturaAsociadaOP;
+        const recibo = item.ReciboCobranza;
+
+        if (recibo && !recibo.includes('Pendiente')) {
+            return { class: 'badge-pagado', text: 'PAGADO' };
+        } else if (factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente')) {
+            return { class: 'badge-facturado', text: 'FACTURADO' };
+        } else if (item.CodigoCarga) {
+            return { class: 'badge-asignado', text: 'No Facturado' };
+        } else {
+            return { class: 'badge-presupuesto', text: 'PRESUPUESTO' };
+        }
+    };
+
+    const formatFecha = (fecha) => {
+        if (!fecha) return '-';
+        try {
+            return format(new Date(fecha), 'dd/MM/yyyy');
+        } catch {
+            return '-';
+        }
+    };
+
+    const formatMonto = (valor) => {
+        if (valor === null || valor === undefined) return '-';
+        return new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS'
+        }).format(valor);
+    };
+
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
     const [selectedItem, setSelectedItem] = useState(null);
     const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
+    const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
+    const [showEstadoModal, setShowEstadoModal] = useState(false);
 
     // Estados para controlar qué elementos están expandidos
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
 
     // Filtrado
-    const filteredData = data.filter(item => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            item.NroPR?.toString().includes(searchLower) ||
-            item.NomCliente?.toLowerCase().includes(searchLower) ||
-            item.DescrpProd?.toLowerCase().includes(searchLower) ||
-            item.CodigoCarga?.toString().includes(searchLower) ||
-            item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
-        );
-    });
+    const filteredData = React.useMemo(() => {
+        let base = data.filter(item => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+                item.NroPR?.toString().includes(searchLower) ||
+                item.NomCliente?.toLowerCase().includes(searchLower) ||
+                item.DescrpProd?.toLowerCase().includes(searchLower) ||
+                item.CodigoCarga?.toString().includes(searchLower) ||
+                item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
+            );
+        });
+
+        // Aplicar sub-filtro de estado si corresponde (independiente de activeFilter para mayor robustez)
+        if (estadoSubFilter !== 'all') {
+            base = base.filter(item => {
+                const info = getEstadoInfo(item);
+                if (estadoSubFilter === 'facturado') return info.text === 'FACTURADO';
+                if (estadoSubFilter === 'pagado') return info.text === 'PAGADO';
+                if (estadoSubFilter === 'noFacturado') return info.text === 'No Facturado';
+                return true;
+            });
+        }
+        return base;
+    }, [data, searchTerm, activeFilter, estadoSubFilter]);
 
     // Agrupar datos por Presupuesto -> Carga -> Factura
     const groupedData = React.useMemo(() => {
@@ -101,11 +150,29 @@ const ResultsTable = ({ data, loading }) => {
             }
         });
 
-        // Convertir a array y ordenar presupuestos por fecha descendente (más reciente primero)
+        // Convertir a array y aplicar ordenamiento principal
         const presupuestosArray = Object.values(groups).sort((a, b) => {
+            if (sortConfig.key === 'presupuesto') {
+                const valA = a.presupuesto || 0;
+                const valB = b.presupuesto || 0;
+                if (sortConfig.direction === 'asc') return valA - valB;
+                return valB - valA;
+            }
+            if (sortConfig.key === 'cliente_monto') {
+                const valA = a.budgetTotal || 0;
+                const valB = b.budgetTotal || 0;
+                // Siempre mayor monto primero si se selecciona por defecto, o togglable?
+                // El usuario dijo "que se ordene por el Cliente con el mayor monto", 
+                // asumimos toggle si ya está seleccionado o forzar desc. 
+                // Usaremos toggle para consistencia.
+                if (sortConfig.direction === 'asc') return valA - valB;
+                return valB - valA;
+            }
+
+            // Orden por defecto: maxFecha descendente
             const fechaA = new Date(a.maxFecha);
             const fechaB = new Date(b.maxFecha);
-            return fechaB - fechaA; // Descendente
+            return fechaB - fechaA;
         });
 
         // Ordenar cargas y facturas dentro de cada presupuesto
@@ -131,7 +198,7 @@ const ResultsTable = ({ data, loading }) => {
         });
 
         return presupuestosArray;
-    }, [filteredData]);
+    }, [filteredData, sortConfig]);
 
     // Paginación sobre presupuestos agrupados
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -213,11 +280,17 @@ const ResultsTable = ({ data, loading }) => {
 
 
     const handleSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
+        let direction = 'desc';
+        if (sortConfig.key === key && sortConfig.direction === 'desc') {
+            direction = 'asc';
         }
         setSortConfig({ key, direction });
+    };
+
+    const clearLocalFilters = () => {
+        setSortConfig({ key: null, direction: 'asc' });
+        setEstadoSubFilter('all');
+        setShowEstadoModal(false);
     };
 
     const getSortIcon = (columnKey) => {
@@ -229,37 +302,7 @@ const ResultsTable = ({ data, loading }) => {
             : <FaSortDown className="sort-icon active" />;
     };
 
-    const getEstadoInfo = (item) => {
-        const factura = item.FacturaAsociadaOP;
-        const recibo = item.ReciboCobranza;
 
-        if (recibo && !recibo.includes('Pendiente')) {
-            return { class: 'badge-pagado', text: 'PAGADO' };
-        } else if (factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente')) {
-            return { class: 'badge-facturado', text: 'FACTURADO' };
-        } else if (item.CodigoCarga) {
-            return { class: 'badge-asignado', text: 'ASIGNADO' };
-        } else {
-            return { class: 'badge-presupuesto', text: 'PRESUPUESTO' };
-        }
-    };
-
-    const formatFecha = (fecha) => {
-        if (!fecha) return '-';
-        try {
-            return format(new Date(fecha), 'dd/MM/yyyy');
-        } catch {
-            return '-';
-        }
-    };
-
-    const formatMonto = (valor) => {
-        if (valor === null || valor === undefined) return '-';
-        return new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS'
-        }).format(valor);
-    };
 
     const exportToExcel = () => {
         // Preparar los datos para Excel
@@ -423,6 +466,12 @@ const ResultsTable = ({ data, loading }) => {
                             className="search-input"
                         />
                     </div>
+                    {/* Botón Limpiar Filtros */}
+                    {(sortConfig.key || estadoSubFilter !== 'all') && (
+                        <button onClick={clearLocalFilters} className="btn-clear-filters" title="Limpiar orden y sub-filtros">
+                            <FaTimesCircle /> Limpiar Filtros
+                        </button>
+                    )}
                     <button onClick={exportToExcel} className="btn-export">
                         <FaDownload /> Exportar a Excel
                     </button>
@@ -445,9 +494,71 @@ const ResultsTable = ({ data, loading }) => {
                     </colgroup>
                     <thead>
                         <tr className="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider border-b border-slate-800">
-                            <th className="py-4 font-medium" style={{ textAlign: 'left', paddingLeft: '2.5rem' }}>N° Presupuesto / Fecha</th>
-                            <th className="py-4 font-medium" style={{ textAlign: 'center' }}>Estado</th>
-                            <th className="py-4 font-medium" style={{ textAlign: 'right', paddingRight: '2.5rem' }}>Cliente / Monto</th>
+                            <th 
+                                className="py-4 font-medium clickable-header" 
+                                style={{ textAlign: 'left', paddingLeft: '2.5rem', cursor: 'pointer' }}
+                                onClick={() => handleSort('presupuesto')}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    N° Presupuesto / Fecha {getSortIcon('presupuesto')}
+                                </div>
+                            </th>
+                            <th 
+                                className="py-4 font-medium relative clickable-header" 
+                                style={{ textAlign: 'center' }}
+                            >
+                                <div 
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        gap: '0.5rem',
+                                        cursor: 'pointer' 
+                                    }}
+                                    onClick={() => setShowEstadoModal(!showEstadoModal)}
+                                >
+                                    Estado <FaChevronDown style={{ fontSize: '0.8rem', opacity: (activeFilter === 'facturados' || activeFilter === 'enCarga') ? 1 : 0.4 }} />
+                                </div>
+
+                                {/* Mini Modal / Dropdown para Estado */}
+                                {showEstadoModal && (
+                                    <div className="status-dropdown fade-in">
+                                        <div 
+                                            className={`dropdown-item ${estadoSubFilter === 'all' ? 'active' : ''}`}
+                                            onClick={() => { setEstadoSubFilter('all'); setShowEstadoModal(false); }}
+                                        >
+                                            Todos
+                                        </div>
+                                        <div 
+                                            className={`dropdown-item ${estadoSubFilter === 'facturado' ? 'active' : ''}`}
+                                            onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
+                                        >
+                                            Facturado
+                                        </div>
+                                        <div 
+                                            className={`dropdown-item ${estadoSubFilter === 'noFacturado' ? 'active' : ''}`}
+                                            onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
+                                        >
+                                            No Facturado
+                                        </div>
+                                        <div 
+                                            className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
+                                            onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
+                                        >
+                                            Pagado
+                                        </div>
+                                    </div>
+                                )}
+                            </th>
+                            <th 
+                                className="py-4 font-medium clickable-header" 
+                                style={{ textAlign: 'right', paddingRight: '2.5rem', cursor: 'pointer' }}
+                                onClick={() => handleSort('cliente_monto')}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                    {getSortIcon('cliente_monto')} Cliente / Monto
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>

@@ -232,14 +232,14 @@ function App() {
                   <div className="stat-value">{stats.facturados}</div>
                 </div>
 
-                {/* Card: En Carga */}
+                {/* Card: No Facturados */}
                 <div
                   className={`stat-card ${activeFilter === 'enCarga' ? 'stat-card-active' : ''}`}
                   onClick={() => handleStatCardClick('enCarga')}
                   title="Filtrar en carga"
                 >
                   <div className="stat-top">
-                    <span className="stat-label">En Carga</span>
+                    <span className="stat-label">No Facturados</span>
                     <div className="stat-icon" style={{ color: 'var(--warning)' }}>
                       <FaTruck />
                     </div>
@@ -283,7 +283,11 @@ function App() {
 
             {/* Tabla de resultados */}
             {hasSearched && (
-              <ResultsTable data={getFilteredData()} loading={loading} />
+              <ResultsTable 
+                data={getFilteredData()} 
+                loading={loading} 
+                activeFilter={activeFilter}
+              />
             )}
 
             {/* Mensaje inicial */}

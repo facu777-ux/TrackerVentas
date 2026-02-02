@@ -87,6 +87,7 @@ router.post("/", async (req, res) => {
                 gt.USR_GTMVIH_CODIGO AS CodCar,
                 gt.USR_GTMVIH_CODFOR AS CodPR,
                 gt.USR_GTMVIH_NROFOR AS NroPR,
+                gt.USR_GTMVIH_NROCRT AS NroCRT,
                 -- Campos adicionales de carga
                 Case 
                     When gt.USR_GTMVIH_TIPVIA = 'E' Then 'Exclusivo'
@@ -215,6 +216,7 @@ router.post("/", async (req, res) => {
                 -- DATOS DE CARGA (puede ser NULL si PR sin carga)
                 gt.EmpreCarga AS EmpresaCarga,
                 gt.CodCar AS CodigoCarga,
+                gt.NroCRT,
                 gt.FecAltOPItems AS FecAltCarga,
                 gt.RemitenteOP,
                 gt.DestinatarioOP,
@@ -319,6 +321,7 @@ router.post("/", async (req, res) => {
                 -- DATOS DE CARGA
                 gt.EmpreCarga,
                 gt.CodCar,
+                gt.NroCRT,
                 gt.FecAltOPItems,
                 gt.RemitenteOP,
                 gt.DestinatarioOP,

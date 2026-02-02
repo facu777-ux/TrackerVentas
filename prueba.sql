@@ -78,6 +78,7 @@ SELECT DISTINCT
     gt.USR_GTMVIH_CODIGO AS CodCar,
     gt.USR_GTMVIH_CODFOR AS CodPR,
     gt.USR_GTMVIH_NROFOR AS NroPR,
+    gt.USR_GTMVIH_NROCRT AS NroCRT,
     -- Necesito agregar estos campos para agregar detalle respecto de las Cargas
     Case 
         When gt.USR_GTMVIH_TIPVIA = 'E' Then 'Exclusivo'
@@ -208,6 +209,7 @@ SELECT
     -- DATOS DE CARGA (puede ser NULL si PR sin carga)
     gt.EmpreCarga AS EmpresaCarga,
     gt.CodCar AS CodigoCarga,
+    gt.NroCRT,
     gt.FecAltOPItems AS FecAltCarga,
     gt.RemitenteOP,
     gt.DestinatarioOP,
@@ -312,6 +314,7 @@ SELECT
     -- DATOS DE CARGA
     gt.EmpreCarga,
     gt.CodCar,
+    gt.NroCRT,
     gt.FecAltOPItems,
     gt.RemitenteOP,
     gt.DestinatarioOP,

@@ -293,7 +293,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
 
     const getContextInfo = () => {
         switch(mode) {
-            case 'carga': return { label: 'Carga Logística', title: `Carga Nº ${item.CodigoCarga || 'S/N'}`, icon: <FaTruck /> };
+            case 'carga': return { label: 'Carga Logística', title: `Carga Nº ${item.CodigoCarga || 'S/N'}`, crt: item.NroCRT, icon: <FaTruck /> };
             case 'factura': return { label: 'Facturación', title: item.FacturaAsociadaOP, icon: <FaFileInvoice /> };
             case 'recibo': return { label: 'Cobranza', title: item.ReciboCobranza, icon: <FaCashRegister /> };
             default: return { label: 'Presupuesto', title: `PR Nº ${item.NroPR}`, icon: <FaFileInvoice /> };
@@ -316,7 +316,14 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                 <div className="ux-modal-header">
                     <div className="title-area">
                         <span className="breadcrumb">{context.label} / {item.EmpOri}</span>
-                        <h1 className="main-title">{context.icon} {context.title}</h1>
+                        <h1 className="main-title">
+                            {context.icon} {context.title}
+                            {context.crt && (
+                                <span style={{ marginLeft: '1.5rem' }}>
+                                    CRT Nº {context.crt}
+                                </span>
+                            )}
+                        </h1>
                     </div>
                     <div className="header-right">
                         {totalItems > 1 && (
