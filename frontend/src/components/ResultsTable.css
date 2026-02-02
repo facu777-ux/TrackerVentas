@@ -606,6 +606,30 @@
     font-size: 0.5rem;
   }
 
+  /* Table columns adjustment for mobile */
+  .results-table {
+    table-layout: auto !important; /* Allow columns to adapt */
+  }
+
+  .results-table th, 
+  .results-table td {
+    white-space: nowrap; /* Avoid wrapping that breaks hierarchy */
+    min-width: 120px;
+  }
+
+  .results-table th:first-child,
+  .results-table td:first-child {
+    min-width: 150px;
+    position: sticky;
+    left: 0;
+    z-index: 40;
+    background: var(--bg-surface);
+  }
+
+  .carga-row td:first-child {
+    background: var(--bg-accents-1);
+  }
+
   /* Contenedor de carga */
   .carga-row .timeline-wrapper {
     padding: 0 0.5rem !important;
