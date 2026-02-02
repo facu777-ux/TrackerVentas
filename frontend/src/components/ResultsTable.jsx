@@ -322,6 +322,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             'Precio Unitario': item.Precio || 0,
             'Total Item': item.TotalItem || 0,
             'Código Carga': item.CodigoCarga || '-',
+            'Nro CRT': item.NroCRT || '-',
             'Fecha Alta Carga': formatFecha(item.FecAltCarga),
             'Factura': item.FacturaAsociadaOP || '-',
             'Recibo Cobranza': item.ReciboCobranza || '-',
