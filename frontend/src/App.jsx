@@ -157,8 +157,8 @@ function App() {
             <div className="header-logo">
               <FaTruck className="logo-icon" />
               <div>
-                <h1 className="header-title">DIBIAGI Tracking</h1>
-                <p className="header-subtitle">Sistema de Seguimiento Logístico</p>
+                <h1 className="header-title">DIBIAGI - Tracking de Ventas</h1>
+                <p className="header-subtitle">Sistema de Seguimiento de Documentación</p>
               </div>
             </div>
 
