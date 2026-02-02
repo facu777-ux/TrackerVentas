@@ -10,7 +10,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'facturados', 'enCarga', 'sinCarga'
+  const [activeFilter, setActiveFilter] = useState('enCarga'); // Default: 'enCarga' (No Facturados)
   const [stats, setStats] = useState({
     total: 0,
     facturados: 0,
@@ -202,37 +202,7 @@ function App() {
             {/* Estadísticas */}
             {hasSearched && !loading && (
               <div className="stats-grid fade-in">
-                {/* Card: Total */}
-                <div
-                  className={`stat-card ${activeFilter === 'all' ? 'stat-card-active' : ''}`}
-                  onClick={() => handleStatCardClick('all')}
-                  title="Ver todos los presupuestos"
-                >
-                  <div className="stat-top">
-                    <span className="stat-label">Total Presupuestos</span>
-                    <div className="stat-icon">
-                      <FaChartLine />
-                    </div>
-                  </div>
-                  <div className="stat-value">{stats.total}</div>
-                </div>
-
-                {/* Card: Facturados */}
-                <div
-                  className={`stat-card ${activeFilter === 'facturados' ? 'stat-card-active' : ''}`}
-                  onClick={() => handleStatCardClick('facturados')}
-                  title="Filtrar facturados"
-                >
-                  <div className="stat-top">
-                    <span className="stat-label">Facturados</span>
-                    <div className="stat-icon" style={{ color: 'var(--success)' }}>
-                      <FaFileInvoice />
-                    </div>
-                  </div>
-                  <div className="stat-value">{stats.facturados}</div>
-                </div>
-
-                {/* Card: No Facturados */}
+                {/* Card: No Facturados (Prioridad 1) */}
                 <div
                   className={`stat-card ${activeFilter === 'enCarga' ? 'stat-card-active' : ''}`}
                   onClick={() => handleStatCardClick('enCarga')}
@@ -247,7 +217,7 @@ function App() {
                   <div className="stat-value">{stats.enCarga}</div>
                 </div>
 
-                {/* Card: Sin Carga */}
+                {/* Card: Sin Carga (Prioridad 2) */}
                 <div
                   className={`stat-card ${activeFilter === 'sinCarga' ? 'stat-card-active' : ''}`}
                   onClick={() => handleStatCardClick('sinCarga')}
@@ -260,6 +230,36 @@ function App() {
                     </div>
                   </div>
                   <div className="stat-value">{stats.presupuestos}</div>
+                </div>
+
+                {/* Card: Facturados (Prioridad 3) */}
+                <div
+                  className={`stat-card ${activeFilter === 'facturados' ? 'stat-card-active' : ''}`}
+                  onClick={() => handleStatCardClick('facturados')}
+                  title="Filtrar facturados"
+                >
+                  <div className="stat-top">
+                    <span className="stat-label">Facturados</span>
+                    <div className="stat-icon" style={{ color: 'var(--success)' }}>
+                      <FaFileInvoice />
+                    </div>
+                  </div>
+                  <div className="stat-value">{stats.facturados}</div>
+                </div>
+
+                {/* Card: Total (Referencia) */}
+                <div
+                  className={`stat-card ${activeFilter === 'all' ? 'stat-card-active' : ''}`}
+                  onClick={() => handleStatCardClick('all')}
+                  title="Ver todos los presupuestos"
+                >
+                  <div className="stat-top">
+                    <span className="stat-label">Total Presupuestos</span>
+                    <div className="stat-icon">
+                      <FaChartLine />
+                    </div>
+                  </div>
+                  <div className="stat-value">{stats.total}</div>
                 </div>
               </div>
             )}

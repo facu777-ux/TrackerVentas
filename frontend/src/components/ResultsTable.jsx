@@ -14,9 +14,10 @@ import {
     FaChevronRight,
     FaEye,
     FaChevronDown,
-    FaChevronUp
+    FaChevronUp,
+    FaClock
 } from 'react-icons/fa';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
 import './ResultsTable.css';
@@ -63,6 +64,16 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
     const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
     const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
     const [showEstadoModal, setShowEstadoModal] = useState(false);
+
+    // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en pendientes
+    React.useEffect(() => {
+        if (activeFilter === 'enCarga' || estadoSubFilter === 'noFacturado') {
+            setSortConfig({ key: 'date', direction: 'asc' });
+        } else {
+            // Default normal
+            setSortConfig({ key: null, direction: 'asc' });
+        }
+    }, [activeFilter, estadoSubFilter]);
 
     // Estados para controlar qué elementos están expandidos
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
@@ -167,6 +178,12 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                 // Usaremos toggle para consistencia.
                 if (sortConfig.direction === 'asc') return valA - valB;
                 return valB - valA;
+            }
+            if (sortConfig.key === 'date') {
+                const fechaA = new Date(a.maxFecha);
+                const fechaB = new Date(b.maxFecha);
+                if (sortConfig.direction === 'asc') return fechaA - fechaB;
+                return fechaB - fechaA;
             }
 
             // Orden por defecto: maxFecha descendente
@@ -371,6 +388,14 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
         setModalMode(null);
     };
 
+    // Helper para urgencia
+    const getUrgencyInfo = (dateString, status) => {
+        if (!dateString || status !== 'No Facturado') return null;
+        const days = differenceInDays(new Date(), new Date(dateString));
+        if (days > 7) return { urgent: true, days };
+        return null;
+    };
+
     const renderCompactTimeline = (item) => {
         const factura = item.FacturaAsociadaOP;
         const isFacturado = factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente');
@@ -394,6 +419,8 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             { id: 4, label: 'Recibo de Cobranza', sublabel: item.ReciboCobranza || 'Sin recibo de cobranza', date: '', completed: hasRecibo, mode: 'recibo' }
         ];
 
+        const urgency = getUrgencyInfo(item.FecAltCarga, (hasCarga && !isFacturado) ? 'No Facturado' : '');
+
         return (
             <div className="table-process-timeline" onClick={(e) => e.stopPropagation()}>
                 {steps.map((step) => (
@@ -407,7 +434,14 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                     >
                         <div className="table-timeline-marker">{step.id}</div>
                         <div className="table-timeline-content">
-                            <h4>{step.label}</h4>
+                            <h4 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                {step.label}
+                                {step.id === 3 && !step.completed && urgency && (
+                                    <span title={`Pendiente hace ${urgency.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                                        <FaClock /> <span style={{ marginLeft: '1px', fontSize: '0.75rem' }}>{urgency.days}d</span>
+                                    </span>
+                                )}
+                            </h4>
                             <p title={step.sublabel}>{step.sublabel}</p>
                             {step.date && <small>{step.date}</small>}
                         </div>
@@ -638,7 +672,18 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
                                                                         {(() => {
                                                                             const status = getEstadoInfo(cargaGroup.info);
-                                                                            return <span className={`badge ${status.class}`}>{status.text}</span>;
+                                                                            const urgency = getUrgencyInfo(cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento, status.text);
+                                                                            
+                                                                            return (
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                                    <span className={`badge ${status.class}`}>{status.text}</span>
+                                                                                    {urgency && (
+                                                                                        <span title={`Pendiente hace ${urgency.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                                                                                            <FaClock /> <span style={{ marginLeft: '2px', fontSize: '0.7rem', fontWeight: 'bold' }}>{urgency.days}d</span>
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
                                                                         })()}
                                                                         <FaEye 
                                                                             style={{ color: 'var(--primary-color)', fontSize: '1rem', opacity: 0.7, flexShrink: 0, cursor: 'pointer' }} 
