@@ -261,6 +261,23 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     <p><strong>Tipo Formulario:</strong> {item.PR}</p>
                 </div>
             </div>
+            {(item.NroSolicitud || item.ObservacionesPR) && (
+                <div className="details-card" style={{ marginTop: '1.5rem', background: 'var(--bg-accents-1)', padding: '1rem', borderRadius: '8px' }}>
+                    <h4 className="block-title">Información Adicional</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <p><strong>Solicitud:</strong> {item.NroSolicitud ? `SOL-${item.NroSolicitud}` : '-'}</p>
+                            <p><strong>Estado Solic.:</strong> {item.EstadoSolicitud || '-'}</p>
+                        </div>
+                        <div>
+                            <p><strong>Observaciones PR:</strong></p>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                {item.ObservacionesPR || 'Sin observaciones'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -281,7 +298,14 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     <tbody>
                         {relatedItems.map((ri, idx) => (
                             <tr key={idx} className={ri === item ? 'current-item' : ''}>
-                                <td>{ri.DescrpProd}</td>
+                                <td>
+                                    <div style={{ fontWeight: '600' }}>{ri.DescrpProd}</div>
+                                    {ri.ObservacionesItem && (
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                            {ri.ObservacionesItem}
+                                        </div>
+                                    )}
+                                </td>
                                 <td>{ri.Cantidad}</td>
                                 <td>{formatMonto(ri.Precio)}</td>
                                 <td className="bold">{formatMonto(ri.TotalItem)}</td>
@@ -345,13 +369,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     <div className="ux-tabs-navigation">
                         <button className={`ux-tab-btn ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>General</button>
                         
-                        {(mode === 'all' || mode === 'carga') && (
-                            <button className={`ux-tab-btn ${activeTab === 'logistica' ? 'active' : ''}`} onClick={() => setActiveTab('logistica')}>Logística</button>
-                        )}
-
-                        {(mode === 'all' || mode === 'presupuesto' || mode === 'factura' || mode === 'recibo') && (
-                            <button className={`ux-tab-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>Administración</button>
-                        )}
+                        <button className={`ux-tab-btn ${activeTab === 'logistica' ? 'active' : ''}`} onClick={() => setActiveTab('logistica')}>Logística</button>
+                        <button className={`ux-tab-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>Administración</button>
 
                         <button className={`ux-tab-btn ${activeTab === 'items' ? 'active' : ''}`} onClick={() => setActiveTab('items')}>
                             Ítems ({relatedItems?.length || 0})

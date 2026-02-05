@@ -75,6 +75,17 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
         }
     }, [activeFilter, estadoSubFilter]);
 
+    // EFECTO: Validar estadoSubFilter cuando cambia activeFilter
+    React.useEffect(() => {
+        if (activeFilter === 'enCarga' && !['all', 'noFacturado'].includes(estadoSubFilter)) {
+            setEstadoSubFilter('all');
+        } else if (activeFilter === 'sinCarga' && estadoSubFilter !== 'all') {
+            setEstadoSubFilter('all');
+        } else if (activeFilter === 'facturados' && !['all', 'facturado', 'pagado'].includes(estadoSubFilter)) {
+            setEstadoSubFilter('all');
+        }
+    }, [activeFilter, estadoSubFilter]);
+
     // Estados para controlar qué elementos están expandidos
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
 
@@ -595,11 +606,19 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                         alignItems: 'center', 
                                         justifyContent: 'center', 
                                         gap: '0.5rem',
-                                        cursor: 'pointer' 
+                                        cursor: activeFilter === 'sinCarga' ? 'default' : 'pointer' 
                                     }}
-                                    onClick={() => setShowEstadoModal(!showEstadoModal)}
+                                    onClick={() => {
+                                        if (activeFilter !== 'sinCarga') {
+                                            setShowEstadoModal(!showEstadoModal);
+                                        }
+                                    }}
                                 >
-                                    Estado <FaChevronDown style={{ fontSize: '0.8rem', opacity: (activeFilter === 'facturados' || activeFilter === 'enCarga') ? 1 : 0.4 }} />
+                                    Estado <FaChevronDown style={{ 
+                                        fontSize: '0.8rem', 
+                                        opacity: activeFilter === 'sinCarga' ? 0.2 : 1,
+                                        display: activeFilter === 'sinCarga' ? 'none' : 'block'
+                                    }} />
                                 </div>
 
                                 {/* Mini Modal / Dropdown para Estado */}
@@ -611,24 +630,33 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                         >
                                             Todos
                                         </div>
-                                        <div 
-                                            className={`dropdown-item ${estadoSubFilter === 'facturado' ? 'active' : ''}`}
-                                            onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
-                                        >
-                                            Facturado
-                                        </div>
-                                        <div 
-                                            className={`dropdown-item ${estadoSubFilter === 'noFacturado' ? 'active' : ''}`}
-                                            onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
-                                        >
-                                            No Facturado
-                                        </div>
-                                        <div 
-                                            className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
-                                            onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
-                                        >
-                                            Pagado
-                                        </div>
+
+                                        {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                                            <div 
+                                                className={`dropdown-item ${estadoSubFilter === 'facturado' ? 'active' : ''}`}
+                                                onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
+                                            >
+                                                Facturado
+                                            </div>
+                                        )}
+
+                                        {(activeFilter === 'all' || activeFilter === 'enCarga') && (
+                                            <div 
+                                                className={`dropdown-item ${estadoSubFilter === 'noFacturado' ? 'active' : ''}`}
+                                                onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
+                                            >
+                                                No Facturado
+                                            </div>
+                                        )}
+
+                                        {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                                            <div 
+                                                className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
+                                                onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
+                                            >
+                                                Pagado
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </th>
