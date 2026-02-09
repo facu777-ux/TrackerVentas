@@ -53,44 +53,54 @@ function App() {
         // Agrupar por presupuestos únicos para contar correctamente
         const presupuestosUnicos = {};
         response.data.forEach(item => {
-          const nroPR = item.NroPR;
+          const nroPR = item.NroPR || `SOL-${item.NroSolicitud}`;
           if (!presupuestosUnicos[nroPR]) {
             presupuestosUnicos[nroPR] = {
               tieneCarga: false,
               tieneFactura: false,
+              tienePendiente: false,
               sinCarga: true
             };
           }
 
-          // Determinar el estado del presupuesto con lógica correcta
-          // Solo tiene carga si CodigoCarga existe
+          // Determinar si el ITEM individual está pendiente
+          const isPending = item.CodigoCarga && 
+              (!item.FacturaAsociadaOP || 
+               item.FacturaAsociadaOP.includes('Pendiente') ||
+               item.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+          
+          const isFacturado = item.CodigoCarga && 
+              item.FacturaAsociadaOP && 
+              !item.FacturaAsociadaOP.includes('Pendiente') &&
+              !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA');
+
           if (item.CodigoCarga) {
             presupuestosUnicos[nroPR].tieneCarga = true;
             presupuestosUnicos[nroPR].sinCarga = false;
           }
 
-          // Solo tiene factura si tiene carga Y la factura no es "Pendiente"
-          if (item.CodigoCarga && 
-              item.FacturaAsociadaOP && 
-              !item.FacturaAsociadaOP.includes('Pendiente') &&
-              !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) {
+          if (isPending) {
+            presupuestosUnicos[nroPR].tienePendiente = true;
+          }
+          
+          if (isFacturado) {
             presupuestosUnicos[nroPR].tieneFactura = true;
           }
         });
 
-        // Clasificar cada presupuesto en UNA SOLA categoría
-        // Lógica: Solo es "facturado" si tiene carga Y factura válida
+        // Clasificar cada presupuesto en UNA SOLA categoría para los contadores
+        // Prioridad: 
+        // 1. Si tiene algo pendiente de facturar -> No Facturado
+        // 2. Si no tiene pendientes pero tiene alguna factura -> Facturado
+        // 3. Si no tiene carga -> Sin Carga
         Object.keys(presupuestosUnicos).forEach(nroPR => {
           const p = presupuestosUnicos[nroPR];
           
-          if (p.tieneFactura && p.tieneCarga) {
-            // Tiene carga Y factura válida = Facturado
-            p.categoria = 'facturado';
-          } else if (p.tieneCarga && !p.tieneFactura) {
-            // Tiene carga pero NO factura = En Carga
+          if (p.tienePendiente) {
             p.categoria = 'enCarga';
+          } else if (p.tieneFactura) {
+            p.categoria = 'facturado';
           } else {
-            // No tiene carga = Sin Carga (solo presupuesto)
             p.categoria = 'sinCarga';
           }
         });

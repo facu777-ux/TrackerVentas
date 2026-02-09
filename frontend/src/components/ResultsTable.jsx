@@ -48,15 +48,17 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
         }
     };
 
-    const formatMonto = (valor) => {
+    const formatMonto = (valor, moneda = 'ARS') => {
         if (valor === null || valor === undefined) return '-';
-        return new Intl.NumberFormat('es-AR', {
+        const formatted = new Intl.NumberFormat('es-AR', {
             style: 'currency',
-            currency: 'ARS'
+            currency: 'ARS' // Mantenemos ARS para el formato de coma y punto
         }).format(valor);
+        return `${formatted} ${moneda || 'ARS'}`;
     };
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchCarga, setSearchCarga] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -64,6 +66,16 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
     const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
     const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
     const [showEstadoModal, setShowEstadoModal] = useState(false);
+
+    // Filtros estilo Excel
+    const [selectedPresupuestos, setSelectedPresupuestos] = useState(null); // null = todos
+    const [selectedClientes, setSelectedClientes] = useState(null); // null = todos
+    const [selectedMonedas, setSelectedMonedas] = useState(null); // null = todas
+    const [showPRFilter, setShowPRFilter] = useState(false);
+    const [showClienteFilter, setShowClienteFilter] = useState(false);
+    const [filterSearchTerm, setFilterSearchTerm] = useState('');
+    const [tempSelected, setTempSelected] = useState(new Set()); 
+    const [tempSelectedMonedas, setTempSelectedMonedas] = useState(new Set()); // Para la selección temporal antes de darle OK
 
     // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en pendientes
     React.useEffect(() => {
@@ -86,20 +98,47 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
         }
     }, [activeFilter, estadoSubFilter]);
 
-    // Estados para controlar qué elementos están expandidos
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
+
+    // Cierre de modales al hacer click afuera
+    React.useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest('.relative') && !e.target.closest('.excel-filter-dropdown')) {
+                setShowPRFilter(false);
+                setShowClienteFilter(false);
+                setShowEstadoModal(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Filtrado
     const filteredData = React.useMemo(() => {
         let base = data.filter(item => {
             const searchLower = searchTerm.toLowerCase();
-            return (
+            const cargaLower = searchCarga.toLowerCase();
+
+            // Filtro Global
+            const matchesGlobal = !searchTerm || (
                 item.NroPR?.toString().includes(searchLower) ||
                 item.NomCliente?.toLowerCase().includes(searchLower) ||
                 item.DescrpProd?.toLowerCase().includes(searchLower) ||
                 item.CodigoCarga?.toString().includes(searchLower) ||
                 item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
             );
+
+            // Filtro específico de Carga
+            const matchesCarga = !searchCarga || (
+                item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
+            );
+
+            // Filtros Multi-Select estilo Excel
+            const matchesPR = !selectedPresupuestos || selectedPresupuestos.has(item.NroPR || item.NroSolicitud);
+            const matchesCliente = !selectedClientes || selectedClientes.has(item.NomCliente);
+            const matchesMoneda = !selectedMonedas || selectedMonedas.has(item.Moneda);
+            
+            return matchesGlobal && matchesCarga && matchesPR && matchesCliente && matchesMoneda;
         });
 
         // Aplicar sub-filtro de estado si corresponde (independiente de activeFilter para mayor robustez)
@@ -113,7 +152,23 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             });
         }
         return base;
-    }, [data, searchTerm, activeFilter, estadoSubFilter]);
+    }, [data, searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas]);
+
+    // Obtener valores únicos para los filtros de Excel
+    const uniquePresupuestos = React.useMemo(() => {
+        const values = [...new Set(data.map(item => item.NroPR || item.NroSolicitud))].filter(Boolean);
+        return values.sort((a, b) => b - a);
+    }, [data]);
+
+    const uniqueClientes = React.useMemo(() => {
+        const values = [...new Set(data.map(item => item.NomCliente))].filter(Boolean);
+        return values.sort();
+    }, [data]);
+
+    const uniqueMonedas = React.useMemo(() => {
+        const values = [...new Set(data.map(item => item.Moneda))].filter(Boolean);
+        return values.sort();
+    }, [data]);
 
     // Agrupar datos por Presupuesto -> Carga -> Factura
     const groupedData = React.useMemo(() => {
@@ -364,16 +419,167 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
     const clearLocalFilters = () => {
         setSortConfig({ key: null, direction: 'asc' });
         setEstadoSubFilter('all');
+        setSearchTerm('');
+        setSearchCarga('');
+        setSelectedPresupuestos(null);
+        setSelectedClientes(null);
+        setSelectedMonedas(null);
         setShowEstadoModal(false);
+        setShowPRFilter(false);
+        setShowClienteFilter(false);
     };
 
     const getSortIcon = (columnKey) => {
         if (sortConfig.key !== columnKey) {
-            return <FaSort className="sort-icon" />;
+            return <FaSort className="sort-icon opa-3" />;
         }
         return sortConfig.direction === 'asc'
             ? <FaSortUp className="sort-icon active" />
             : <FaSortDown className="sort-icon active" />;
+    };
+
+    // Renderizar el dropdown estilo Excel
+    const renderExcelFilter = (type, align = 'left') => {
+        const isPR = type === 'pr';
+        const options = isPR ? uniquePresupuestos : uniqueClientes;
+        const currentSelected = isPR ? selectedPresupuestos : selectedClientes;
+        
+        // Filtrar opciones según el buscador interno
+        const filteredOptions = options.filter(opt => 
+            opt.toString().toLowerCase().includes(filterSearchTerm.toLowerCase())
+        );
+
+        const handleSelectAll = (checked) => {
+            if (checked) {
+                setTempSelected(new Set(options));
+            } else {
+                setTempSelected(new Set());
+            }
+        };
+
+        const handleToggleOption = (opt) => {
+            const next = new Set(tempSelected);
+            if (next.has(opt)) next.delete(opt);
+            else next.add(opt);
+            setTempSelected(next);
+        };
+
+        const handleAccept = () => {
+            // Manejo de Clientes/Presupuestos
+            if (tempSelected.size === options.length) {
+                isPR ? setSelectedPresupuestos(null) : setSelectedClientes(null);
+            } else {
+                isPR ? setSelectedPresupuestos(new Set(tempSelected)) : setSelectedClientes(new Set(tempSelected));
+            }
+            
+            // Manejo de Monedas (solo para cliente)
+            if (!isPR) {
+                if (tempSelectedMonedas.size === uniqueMonedas.length) {
+                    setSelectedMonedas(null);
+                } else {
+                    setSelectedMonedas(new Set(tempSelectedMonedas));
+                }
+            }
+
+            isPR ? setShowPRFilter(false) : setShowClienteFilter(false);
+            setCurrentPage(1);
+        };
+
+        const handleToggleMoneda = (mon) => {
+            const next = new Set(tempSelectedMonedas);
+            if (next.has(mon)) next.delete(mon);
+            else next.add(mon);
+            setTempSelectedMonedas(next);
+        };
+
+        return (
+            <div className={`excel-filter-dropdown align-${align}`} onClick={e => e.stopPropagation()}>
+                <div className="excel-filter-sort">
+                    <div className="filter-sort-item" onClick={() => { 
+                        setSortConfig({ key: isPR ? 'presupuesto' : 'cliente_monto', direction: 'asc' }); 
+                        isPR ? setShowPRFilter(false) : setShowClienteFilter(false); 
+                    }}>
+                        <FaSortUp /> Ordenar de menor a mayor
+                    </div>
+                    <div className="filter-sort-item" onClick={() => { 
+                        setSortConfig({ key: isPR ? 'presupuesto' : 'cliente_monto', direction: 'desc' }); 
+                        isPR ? setShowPRFilter(false) : setShowClienteFilter(false); 
+                    }}>
+                        <FaSortDown /> Ordenar de mayor a menor
+                    </div>
+                </div>
+                
+                <div className="excel-filter-divider" />
+                
+                <div className="filter-clear-item" onClick={() => {
+                    if (isPR) {
+                        setSelectedPresupuestos(null);
+                    } else {
+                        setSelectedClientes(null);
+                        setSelectedMonedas(null);
+                    }
+                    isPR ? setShowPRFilter(false) : setShowClienteFilter(false);
+                }}>
+                    <FaTimesCircle /> Borrar filtro de "{isPR ? 'Prespuesto' : 'Cliente'}"
+                </div>
+
+                {!isPR && (
+                    <>
+                        <div className="excel-filter-section-title">Filtrar por Moneda:</div>
+                        <div className="excel-filter-moneda-list">
+                            {uniqueMonedas.map(mon => (
+                                <label key={mon} className="filter-list-item-inline">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={tempSelectedMonedas.has(mon)}
+                                        onChange={() => handleToggleMoneda(mon)}
+                                    />
+                                    <span>{mon}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="excel-filter-divider" />
+                    </>
+                )}
+
+                <div className="excel-filter-search">
+                    <input 
+                        type="text" 
+                        placeholder="Buscar..." 
+                        value={filterSearchTerm}
+                        onChange={(e) => setFilterSearchTerm(e.target.value)}
+                        autoFocus
+                    />
+                    <FaSearch className="filter-search-icon" />
+                </div>
+
+                <div className="excel-filter-list">
+                    <label className="filter-list-item">
+                        <input 
+                            type="checkbox" 
+                            checked={tempSelected.size === options.length}
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                        />
+                        <span>(Seleccionar todo)</span>
+                    </label>
+                    {filteredOptions.map(opt => (
+                        <label key={opt} className="filter-list-item">
+                            <input 
+                                type="checkbox" 
+                                checked={tempSelected.has(opt)}
+                                onChange={() => handleToggleOption(opt)}
+                            />
+                            <span>{opt}</span>
+                        </label>
+                    ))}
+                </div>
+
+                <div className="excel-filter-footer">
+                    <button className="btn-filter-accept" onClick={handleAccept}>ACEPTAR</button>
+                    <button className="btn-filter-cancel" onClick={() => isPR ? setShowPRFilter(false) : setShowClienteFilter(false)}>CANCELAR</button>
+                </div>
+            </div>
+        );
     };
 
 
@@ -395,6 +601,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             'Unidad': item.UnidadMedida || '-',
             'Precio Unitario': item.Precio || 0,
             'Total Item': item.TotalItem || 0,
+            'Moneda': item.Moneda || 'ARS',
             'Código Carga': item.CodigoCarga || '-',
             'Cliente a Facturar': item.ClienteAFacturar || '-',
             'Nro CRT': item.NroCRT || '-',
@@ -546,7 +753,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                     </span>
                 </div>
                 <div className="table-actions">
-                    <div className="search-box">
+                    <div className="search-bar-container">
                         <FaSearch className="search-icon" />
                         <input
                             type="text"
@@ -557,6 +764,20 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                 setCurrentPage(1);
                             }}
                             className="search-input"
+                        />
+                    </div>
+                    <div className="search-bar-container secondary-search">
+                        <FaTruck style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                        <input
+                            type="text"
+                            placeholder="Buscar Nº Carga..."
+                            value={searchCarga}
+                            onChange={(e) => {
+                                setSearchCarga(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="search-input"
+                            style={{ paddingLeft: '2.5rem' }}
                         />
                     </div>
                     {/* Botón Limpiar Filtros */}
@@ -578,7 +799,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             </div>
 
             {/* Tabla jerárquica */}
-            <div className="table-wrapper">
+            <div className={`table-wrapper ${(showPRFilter || showClienteFilter || showEstadoModal) ? 'filter-open' : ''}`}>
                 <table className="results-table hierarchical-table" style={{ tableLayout: 'fixed', width: '100%' }}>
                     <colgroup>
                         <col style={{ width: '30%' }} />
@@ -588,13 +809,24 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                     <thead>
                         <tr className="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider border-b border-slate-800">
                             <th 
-                                className="py-4 font-medium clickable-header" 
-                                style={{ textAlign: 'left', paddingLeft: '2.5rem', cursor: 'pointer' }}
-                                onClick={() => handleSort('presupuesto')}
+                                className="py-4 font-medium clickable-header relative" 
+                                style={{ textAlign: 'left', paddingLeft: '2.5rem' }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    N° Presupuesto / Fecha {getSortIcon('presupuesto')}
+                                <div 
+                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilterSearchTerm('');
+                                        setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
+                                        setShowPRFilter(!showPRFilter);
+                                        setShowClienteFilter(false);
+                                        setShowEstadoModal(false);
+                                    }}
+                                >
+                                    N° Presupuesto / Fecha 
+                                    <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedPresupuestos ? 1 : 0.5, color: selectedPresupuestos ? 'var(--primary-color)' : 'inherit' }} />
                                 </div>
+                                {showPRFilter && renderExcelFilter('pr')}
                             </th>
                             <th 
                                 className="py-4 font-medium relative clickable-header" 
@@ -661,13 +893,25 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                 )}
                             </th>
                             <th 
-                                className="py-4 font-medium clickable-header" 
-                                style={{ textAlign: 'right', paddingRight: '2.5rem', cursor: 'pointer' }}
-                                onClick={() => handleSort('cliente_monto')}
+                                className="py-4 font-medium relative clickable-header" 
+                                style={{ textAlign: 'right', paddingRight: '2.5rem' }}
                             >
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                                    {getSortIcon('cliente_monto')} Cliente / Monto
+                                <div 
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilterSearchTerm('');
+                                        setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
+                                        setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
+                                        setShowClienteFilter(!showClienteFilter);
+                                        setShowPRFilter(false);
+                                        setShowEstadoModal(false);
+                                    }}
+                                >
+                                    {getSortIcon('cliente_monto')} Cliente / Monto 
+                                    <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedClientes ? 1 : 0.5, color: selectedClientes ? 'var(--primary-color)' : 'inherit' }} />
                                 </div>
+                                {showClienteFilter && renderExcelFilter('cliente', 'right')}
                             </th>
                         </tr>
                     </thead>
@@ -716,7 +960,7 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                                                 <strong className="text-white" style={{ display: 'block' }}>{group.info.NomCliente}</strong>
                                                 <span className="text-secondary font-bold" style={{ fontSize: '0.75rem' }}>
-                                                    {formatMonto(group.info.TotalItem || group.info.ImporteTotal)}
+                                                    {formatMonto(group.budgetTotal, group.info.Moneda)}
                                                 </span>
                                             </div>
                                         </td>
@@ -890,7 +1134,11 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
 
             {selectedItem && (() => {
                 const group = groupedData.find(g => g.presupuesto === (selectedItem.NroPR || selectedItem.NroSolicitud));
-                const allItems = group ? group.cargasArray.flatMap(c => c.facturas) : [];
+                const allItems = group ? (
+                    selectedItem.CodigoCarga 
+                    ? group.items.filter(i => i.CodigoCarga === selectedItem.CodigoCarga)
+                    : group.items
+                ) : [];
                 return (
                     <DetailModal 
                         item={selectedItem} 

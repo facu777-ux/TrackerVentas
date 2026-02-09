@@ -805,3 +805,264 @@
   background-color: rgba(239, 68, 68, 0.2);
   transform: translateY(-1px);
 }
+
+.opa-3 {
+  opacity: 0.3;
+}
+
+/* Excel Style Filters */
+.excel-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #c5c5c5;
+  border-radius: 2px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  z-index: 200;
+  min-width: 280px;
+  margin-top: 5px;
+  color: #333;
+  padding: 2px;
+  text-transform: none;
+  font-weight: 400;
+  text-align: left; /* Asegurar que no herede el alineado a la derecha del header */
+  animation: slideDown 0.15s ease-out;
+}
+
+[data-theme='dark'] .excel-filter-dropdown {
+  background: #1a1a1a;
+  border-color: #444;
+  color: #eee;
+}
+
+.excel-filter-sort {
+  padding: 5px 0;
+}
+
+.filter-sort-item {
+  padding: 8px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.filter-sort-item:hover {
+  background: #f0f0f0;
+}
+
+[data-theme='dark'] .filter-sort-item:hover {
+  background: #333;
+}
+
+.excel-filter-divider {
+  height: 1px;
+  background: #e5e5e5;
+  margin: 5px 0;
+}
+
+[data-theme='dark'] .excel-filter-divider {
+  background: #444;
+}
+
+.filter-clear-item {
+  padding: 8px 15px;
+  color: #666;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+[data-theme='dark'] .filter-clear-item {
+  color: #aaa;
+}
+
+.excel-filter-search {
+  padding: 8px 10px;
+  position: relative;
+}
+
+.excel-filter-search input {
+  width: 100%;
+  padding: 6px 10px 6px 30px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  background: white !important;
+  color: #333 !important;
+}
+
+[data-theme='dark'] .excel-filter-search input {
+  background: #222 !important;
+  border-color: #444;
+  color: #eee !important;
+}
+
+.filter-search-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.excel-filter-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 5px 0;
+  border: 1px solid #e5e5e5;
+  margin: 0 10px 10px 10px;
+}
+
+[data-theme='dark'] .excel-filter-list {
+  border-color: #444;
+}
+
+.filter-list-item {
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+[data-theme='dark'] .filter-list-item {
+  color: #ccc;
+}
+
+.filter-list-item:hover {
+  background: #f0f0f0;
+}
+
+[data-theme='dark'] .filter-list-item:hover {
+  background: #333;
+}
+
+.filter-list-item input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.excel-filter-footer {
+  padding: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #f8f8f8;
+  border-top: 1px solid #e5e5e5;
+}
+
+[data-theme='dark'] .excel-filter-footer {
+  background: #222;
+  border-color: #444;
+}
+
+.btn-filter-accept, .btn-filter-cancel {
+  padding: 5px 15px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-filter-accept {
+  background: white;
+  border: 1px solid #ccc;
+  color: #333;
+}
+
+.btn-filter-accept:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+.btn-filter-cancel {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #666;
+}
+
+.btn-filter-cancel:hover {
+  background: #eee;
+}
+
+[data-theme='dark'] .btn-filter-accept {
+  background: #333;
+  border-color: #555;
+  color: #eee;
+}
+
+[data-theme='dark'] .btn-filter-cancel {
+  color: #aaa;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.excel-filter-section-title {
+  padding: 12px 15px 6px 15px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.excel-filter-moneda-list {
+  padding: 5px 15px 10px 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.filter-list-item-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+  transition: color 0.2s;
+}
+
+[data-theme='dark'] .filter-list-item-inline {
+  color: #ccc;
+}
+
+.filter-list-item-inline:hover {
+  color: var(--primary-color);
+}
+
+.filter-list-item-inline input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* Alineación de filtros */
+.excel-filter-dropdown.align-right {
+  left: auto;
+  right: 0;
+}
+
+/* Evitar que el filtro se corte cuando hay pocos resultados */
+.table-wrapper.filter-open {
+  min-height: 550px;
+  padding-bottom: 100px;
+}

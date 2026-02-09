@@ -8,7 +8,7 @@ router.post("/", async (req, res) => {
     const {
       empresa = null,
       fechaDesde = "2024-01-01",
-      fechaHasta = "2025-12-31",
+      fechaHasta = "2100-12-31",
       cliente = null,
       nroPR = null,
       limit = 100,
@@ -115,7 +115,12 @@ router.post("/", async (req, res) => {
                 i.USR_GTMVII_NROFAC AS NroFac,
                 i.USR_GT_FECALT AS FecAltOPItems,
                 i.USR_GTMVII_NROITM AS NroItmCarga,
-                i.USR_VIRT_TOTLIN AS TotalItemCarga
+                i.USR_VIRT_TOTLIN AS TotalItemCarga,
+                i.USR_GTMVII_TIPPRO AS TipProI,
+                i.USR_GTMVII_ARTCOD AS ArtCodI,
+                i.USR_GTMVII_CANTID AS CantI,
+                i.USR_GTMVII_PRECIO AS PrecI,
+                i.USR_GTMVII_OBSERV AS ObservI
             INTO #Cargas
             FROM USR_GTMVIH gt WITH (NOLOCK)
                 INNER JOIN USR_GTMVII i WITH (NOLOCK)
@@ -205,17 +210,18 @@ router.post("/", async (req, res) => {
                 pr.SolicitudAplica AS VinculoSolicitud,
                 usd.STTLPR_DESCRP AS ListaPrecio,
                 CnPag.VTTCPH_DESCRP AS CondicionPago,
+                usd.STTLPR_CODCOF AS Moneda,
                 
                 -- DATOS DE ITEMS (unión de PR y Carga)
                 itms.NroItm,
-                i.FCRMVI_TIPPRO AS TipPro,
-                i.FCRMVI_ARTCOD AS ArtCod,
-                ISNULL(sth.STMPDH_DESCRP, '(Item Adicional en Carga)') AS DescrpProd,
-                ISNULL(i.FCRMVI_CANTID, 0) AS Cantidad,
-                sth.STMPDH_UNIMED AS UnidadMedida,
-                ISNULL(i.FCRMVI_PRECIO, 0) AS Precio,
+                COALESCE(i.FCRMVI_TIPPRO, gt.TipProI) AS TipPro,
+                COALESCE(i.FCRMVI_ARTCOD, gt.ArtCodI) AS ArtCod,
+                COALESCE(sth.STMPDH_DESCRP, sth2.STMPDH_DESCRP, '(Item Adicional en Carga)') AS DescrpProd,
+                COALESCE(i.FCRMVI_CANTID, gt.CantI, 0) AS Cantidad,
+                COALESCE(sth.STMPDH_UNIMED, sth2.STMPDH_UNIMED) AS UnidadMedida,
+                COALESCE(i.FCRMVI_PRECIO, gt.PrecI, 0) AS Precio,
                 ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga) AS TotalItem,
-                i.FCRMVI_TEXTOS AS ObservacionesItem,
+                COALESCE(i.FCRMVI_TEXTOS, gt.ObservI) AS ObservacionesItem,
                 
                 -- DATOS DE CARGA (puede ser NULL si PR sin carga)
                 gt.EmpreCarga AS EmpresaCarga,
@@ -279,6 +285,9 @@ router.post("/", async (req, res) => {
                 LEFT JOIN STMPDH sth WITH (NOLOCK)
                     ON i.FCRMVI_TIPPRO = sth.STMPDH_TIPPRO 
                     AND i.FCRMVI_ARTCOD = sth.STMPDH_ARTCOD
+                LEFT JOIN STMPDH sth2 WITH (NOLOCK)
+                    ON gt.TipProI = sth2.STMPDH_TIPPRO 
+                    AND gt.ArtCodI = sth2.STMPDH_ARTCOD
                 LEFT JOIN VTTCPH CnPag WITH (NOLOCK)
                     ON pr.FCRMVH_CNDPAG = CnPag.VTTCPH_CNDPAG
                 
@@ -321,17 +330,18 @@ router.post("/", async (req, res) => {
                 pr.SolicitudAplica,
                 usd.STTLPR_DESCRP,
                 CnPag.VTTCPH_DESCRP,
+                usd.STTLPR_CODCOF,
                 
                 -- DATOS DE ITEMS
                 itms.NroItm,
-                i.FCRMVI_TIPPRO,
-                i.FCRMVI_ARTCOD,
-                ISNULL(sth.STMPDH_DESCRP, '(Item Adicional en Carga)'),
-                ISNULL(i.FCRMVI_CANTID, 0),
-                sth.STMPDH_UNIMED,
-                ISNULL(i.FCRMVI_PRECIO, 0),
+                COALESCE(i.FCRMVI_TIPPRO, gt.TipProI),
+                COALESCE(i.FCRMVI_ARTCOD, gt.ArtCodI),
+                COALESCE(sth.STMPDH_DESCRP, sth2.STMPDH_DESCRP, '(Item Adicional en Carga)'),
+                COALESCE(i.FCRMVI_CANTID, gt.CantI, 0),
+                COALESCE(sth.STMPDH_UNIMED, sth2.STMPDH_UNIMED),
+                COALESCE(i.FCRMVI_PRECIO, gt.PrecI, 0),
                 ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga),
-                i.FCRMVI_TEXTOS,
+                COALESCE(i.FCRMVI_TEXTOS, gt.ObservI),
                 
                 -- DATOS DE CARGA
                 gt.EmpreCarga,
@@ -395,6 +405,9 @@ router.post("/", async (req, res) => {
                 LEFT JOIN STMPDH sth WITH (NOLOCK)
                     ON i.FCRMVI_TIPPRO = sth.STMPDH_TIPPRO 
                     AND i.FCRMVI_ARTCOD = sth.STMPDH_ARTCOD
+                LEFT JOIN STMPDH sth2 WITH (NOLOCK)
+                    ON gt.TipProI = sth2.STMPDH_TIPPRO 
+                    AND gt.ArtCodI = sth2.STMPDH_ARTCOD
                 LEFT JOIN VTTCPH CnPag WITH (NOLOCK)
                     ON pr.FCRMVH_CNDPAG = CnPag.VTTCPH_CNDPAG
                 

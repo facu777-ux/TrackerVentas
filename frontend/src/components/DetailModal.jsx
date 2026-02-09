@@ -42,13 +42,14 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
         }
     };
 
-    const formatMonto = (valor) => {
+    const formatMonto = (valor, moneda = item.Moneda) => {
         if (valor === null || valor === undefined) return '-';
-        return new Intl.NumberFormat('es-AR', {
+        const formatted = new Intl.NumberFormat('es-AR', {
             style: 'currency',
             currency: 'ARS',
             minimumFractionDigits: 2
         }).format(valor);
+        return `${formatted} ${moneda || 'ARS'}`;
     };
 
     const getEstado = () => {
@@ -80,8 +81,6 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
     }, []);
 
     const renderMetricCards = () => {
-        const totalCantidad = relatedItems?.reduce((acc, ri) => acc + (ri.Cantidad || 0), 0) || 0;
-
         // Métricas según el contexto (Modo)
         if (mode === 'carga') {
             return (
@@ -105,7 +104,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">ITEMS TOTALES</span>
-                        <h2 className="metric-value">{totalCantidad}</h2>
+                        <h2 className="metric-value">{relatedItems?.length || 0}</h2>
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">ESTADO LOGÍSTICO</span>
