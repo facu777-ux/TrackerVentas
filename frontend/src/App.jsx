@@ -54,8 +54,11 @@ function App() {
         const presupuestosUnicos = {};
         response.data.forEach(item => {
           const nroPR = item.NroPR || `SOL-${item.NroSolicitud}`;
-          if (!presupuestosUnicos[nroPR]) {
-            presupuestosUnicos[nroPR] = {
+          const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud || 'SE-';
+          const pk = `${empresa}-${nroPR}`;
+          
+          if (!presupuestosUnicos[pk]) {
+            presupuestosUnicos[pk] = {
               tieneCarga: false,
               tieneFactura: false,
               tienePendiente: false,
@@ -75,44 +78,35 @@ function App() {
               !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA');
 
           if (item.CodigoCarga) {
-            presupuestosUnicos[nroPR].tieneCarga = true;
-            presupuestosUnicos[nroPR].sinCarga = false;
+            presupuestosUnicos[pk].tieneCarga = true;
+            presupuestosUnicos[pk].sinCarga = false;
           }
 
           if (isPending) {
-            presupuestosUnicos[nroPR].tienePendiente = true;
+            presupuestosUnicos[pk].tienePendiente = true;
           }
           
           if (isFacturado) {
-            presupuestosUnicos[nroPR].tieneFactura = true;
+            presupuestosUnicos[pk].tieneFactura = true;
           }
         });
 
-        // Clasificar cada presupuesto en UNA SOLA categoría para los contadores
-        // Prioridad: 
-        // 1. Si tiene algo pendiente de facturar -> No Facturado
-        // 2. Si no tiene pendientes pero tiene alguna factura -> Facturado
-        // 3. Si no tiene carga -> Sin Carga
-        Object.keys(presupuestosUnicos).forEach(nroPR => {
-          const p = presupuestosUnicos[nroPR];
-          
-          if (p.tienePendiente) {
-            p.categoria = 'enCarga';
-          } else if (p.tieneFactura) {
-            p.categoria = 'facturado';
-          } else {
-            p.categoria = 'sinCarga';
-          }
-        });
-
-        const presupuestosArray = Object.values(presupuestosUnicos);
-
+        // Contar presupuestos en cada categoría (un presupuesto puede estar en varias)
         const stats = {
-          total: presupuestosArray.length,
-          facturados: presupuestosArray.filter(p => p.categoria === 'facturado').length,
-          enCarga: presupuestosArray.filter(p => p.categoria === 'enCarga').length,
-          presupuestos: presupuestosArray.filter(p => p.categoria === 'sinCarga').length
+          total: Object.keys(presupuestosUnicos).length,
+          facturados: 0,
+          enCarga: 0,
+          presupuestos: 0
         };
+
+        Object.values(presupuestosUnicos).forEach(p => {
+          if (p.tienePendiente) stats.enCarga++;
+          if (p.tieneFactura) stats.facturados++;
+          if (p.sinCarga) stats.presupuestos++;
+          
+          // Nota: Si un presupuesto no tiene carga ni está en factura, 
+          // cae en 'sinCarga' por defecto en la lógica anterior del loop.
+        });
         setStats(stats);
       } else {
         setError('Error al obtener los datos');
@@ -295,6 +289,7 @@ function App() {
             {hasSearched && (
               <ResultsTable 
                 data={getFilteredData()} 
+                allData={data}
                 loading={loading} 
                 activeFilter={activeFilter}
               />

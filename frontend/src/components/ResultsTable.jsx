@@ -22,7 +22,66 @@ import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
 import './ResultsTable.css';
 
-const ResultsTable = ({ data, loading, activeFilter }) => {
+const ResultsTable = ({ data, allData, loading, activeFilter }) => {
+    // Helpers
+    const getBudgetContext = (item) => {
+        const nroPR = item.NroPR || item.NroSolicitud;
+        const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud;
+        if (!allData || !nroPR) return { totalCargas: 0, noFacturadas: 0, facturadas: 0, pendientesRecibo: 0, itemsSinCarga: 0 };
+        
+        const allItems = allData.filter(i => {
+            const iPR = i.NroPR || i.NroSolicitud;
+            const iEmp = i.FCRMVH_CODEMP || i.EmpresaSolicitud;
+            return iPR === nroPR && iEmp === empresa;
+        });
+        
+        // Cargas únicas
+        const uniqueCargas = [...new Set(allItems.map(i => i.CodigoCarga).filter(Boolean))];
+        const totalCargas = uniqueCargas.length;
+        
+        // Items sin carga
+        const itemsSinCarga = allItems.filter(i => !i.CodigoCarga).length;
+        
+        // Cargas que tienen al menos un ítem pendiente de factura
+        const noFacturadas = uniqueCargas.filter(id => {
+            const items = allItems.filter(i => i.CodigoCarga === id);
+            return items.some(i => !i.FacturaAsociadaOP || i.FacturaAsociadaOP.includes('Pendiente') || i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+        }).length;
+
+        // Cargas que tienen al menos un ítem ya facturado
+        const facturadas = uniqueCargas.filter(id => {
+            const items = allItems.filter(i => i.CodigoCarga === id);
+            return items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+        }).length;
+
+        // Cargas que tienen al menos una factura y están pendientes de recibo
+        const pendientesRecibo = uniqueCargas.filter(id => {
+            const items = allItems.filter(i => i.CodigoCarga === id);
+            const hasFactura = items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+            const hasRecibo = items.some(i => i.ReciboCobranza && !i.ReciboCobranza.includes('Pendiente'));
+            return hasFactura && !hasRecibo;
+        }).length;
+
+        return { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga };
+    };
+
+    const renderLeyenda = (item) => {
+        const { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga } = getBudgetContext(item);
+        
+        if (activeFilter === 'sinCarga') {
+            return `Tiene 0 cargas asociadas al mismo presupuesto y ${itemsSinCarga} está/están pendiente de realizar una Carga.`;
+        }
+        
+        if (activeFilter === 'enCarga') {
+            return `Tiene ${totalCargas} cargas asociadas al mismo presupuesto, ${noFacturadas} están pendientes de realizar una Factura, y ${facturadas} ya están facturadas.`;
+        }
+        
+        if (activeFilter === 'facturados') {
+            return `Tiene ${totalCargas} cargas asociadas al mismo presupuesto, ${noFacturadas} no están facturadas, solo ${facturadas} está/están facturadas, y de la/las que está/están facturadas hay ${pendientesRecibo} pendientes de realizar un Recibo / Cobro.`;
+        }
+        
+        return null;
+    };
     // Helpers (Definidos antes de ser usados en useMemo para evitar TDZ)
     const getEstadoInfo = (item) => {
         const factura = item.FacturaAsociadaOP;
@@ -175,12 +234,14 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
         const groups = {};
 
         filteredData.forEach(item => {
-            // Clave única: Preferir NroPR, sino NroSolicitud
-            const presupuestoKey = item.NroPR || `SOL-${item.NroSolicitud}` || `ITEM-${item.ArtCod}`;
+            // Clave única: Empresa + NroPR (para evitar mezclar PRs de distintos grupos con mismo número)
+            const nroPR = item.NroPR || `SOL-${item.NroSolicitud}`;
+            const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud || 'SE-';
+            const presupuestoKey = `${empresa}-${nroPR}`;
 
             if (!groups[presupuestoKey]) {
                 groups[presupuestoKey] = {
-                    presupuesto: item.NroPR || item.NroSolicitud,
+                    presupuesto: nroPR,
                     key: presupuestoKey,
                     info: { ...item }, // Copia inicial
                     items: [],      // Array para guardar todos los items crudos del PR
@@ -339,7 +400,11 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
     const navigableItems = React.useMemo(() => {
         if (!selectedItem) return [];
         
-        const currentGroup = groupedData.find(g => g.presupuesto === (selectedItem.NroPR || selectedItem.NroSolicitud));
+        const currentGroup = groupedData.find(g => {
+            const nroPR = selectedItem.NroPR || `SOL-${selectedItem.NroSolicitud}`;
+            const empresa = selectedItem.FCRMVH_CODEMP || selectedItem.EmpresaSolicitud || 'SE-';
+            return g.key === `${empresa}-${nroPR}`;
+        });
         if (!currentGroup) return [];
 
         const items = [];
@@ -937,6 +1002,17 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
                                                 <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
                                                     {formatFecha(group.info.FchMovimiento)}
                                                 </span>
+                                                {activeFilter !== 'all' && (
+                                                    <span className="presupuesto-leyenda" style={{ 
+                                                        fontSize: '0.7rem', 
+                                                        color: 'var(--text-secondary)', 
+                                                        marginTop: '4px',
+                                                        fontStyle: 'italic',
+                                                        opacity: 0.8
+                                                    }}>
+                                                        {renderLeyenda(group.info)}
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
 
@@ -1133,7 +1209,11 @@ const ResultsTable = ({ data, loading, activeFilter }) => {
             )}
 
             {selectedItem && (() => {
-                const group = groupedData.find(g => g.presupuesto === (selectedItem.NroPR || selectedItem.NroSolicitud));
+                const group = groupedData.find(g => {
+                    const nroPR = selectedItem.NroPR || `SOL-${selectedItem.NroSolicitud}`;
+                    const empresa = selectedItem.FCRMVH_CODEMP || selectedItem.EmpresaSolicitud || 'SE-';
+                    return g.key === `${empresa}-${nroPR}`;
+                });
                 const allItems = group ? (
                     selectedItem.CodigoCarga 
                     ? group.items.filter(i => i.CodigoCarga === selectedItem.CodigoCarga)
