@@ -49,7 +49,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
             currency: 'ARS',
             minimumFractionDigits: 2
         }).format(valor);
-        return `${formatted} ${moneda || 'ARS'}`;
+        return `${moneda || 'ARS'} ${formatted}`;
     };
 
     const getEstado = () => {
@@ -80,14 +80,43 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
         return () => { document.body.style.overflow = originalOverflow; };
     }, []);
 
+    // Obtener valores según el modo (Presupuesto vs ejecución/Carga)
+    const getItemValues = (ri) => {
+        if (mode === 'presupuesto') {
+            return {
+                cantidad: ri.CantidadPR ?? 0,
+                precio: ri.PrecioPR ?? 0,
+                total: ri.TotalItemPR ?? 0
+            };
+        } else if (mode === 'carga') {
+            return {
+                cantidad: ri.CantidadCarga ?? 0,
+                precio: ri.PrecioCarga ?? 0,
+                total: ri.TotalItemCarga ?? 0
+            };
+        }
+        // Por defecto (Factura/Recibo/Gral) usamos los valores de ejecución
+        return {
+            cantidad: ri.Cantidad ?? 0,
+            precio: ri.Precio ?? 0,
+            total: ri.TotalItem ?? 0
+        };
+    };
+
+    // Calcular total dinámico para el header según el modo
+    const currentModeTotal = React.useMemo(() => {
+        if (!relatedItems) return budgetTotal;
+        return relatedItems.reduce((acc, ri) => acc + getItemValues(ri).total, 0);
+    }, [relatedItems, mode, budgetTotal]);
+
     const renderMetricCards = () => {
         // Métricas según el contexto (Modo)
         if (mode === 'carga') {
             return (
                 <div className="metric-cards-container">
                     <div className="metric-card highlight">
-                        <span className="metric-label">CÓDIGO DE CARGA</span>
-                        <h2 className="metric-value">{item.CodigoCarga || 'PENDIENTE'}</h2>
+                        <span className="metric-label">TOTAL CARGA</span>
+                        <h2 className="metric-value">{formatMonto(currentModeTotal)}</h2>
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">FECHA Y HORA CARGA</span>
@@ -103,8 +132,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                         </h2>
                     </div>
                     <div className="metric-card">
-                        <span className="metric-label">ITEMS TOTALES</span>
-                        <h2 className="metric-value">{relatedItems?.length || 0}</h2>
+                        <span className="metric-label">ITEMS CARGA</span>
+                        <h2 className="metric-value">{relatedItems?.filter(ri => !!ri.CantidadCarga).length || relatedItems?.length || 0}</h2>
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">ESTADO LOGÍSTICO</span>
@@ -118,6 +147,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
 
         if (mode === 'factura' || mode === 'recibo') {
             const isRecibo = mode === 'recibo';
+            const { total } = getItemValues(item);
             return (
                 <div className="metric-cards-container">
                     <div className="metric-card highlight">
@@ -126,7 +156,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">IMPORTE ITEM</span>
-                        <h2 className="metric-value">{formatMonto(item.TotalItem)}</h2>
+                        <h2 className="metric-value">{formatMonto(total)}</h2>
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">CLIENTE</span>
@@ -147,10 +177,10 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
             <div className="metric-cards-container">
                 <div className="metric-card highlight">
                     <span className="metric-label">TOTAL PRESUPUESTO</span>
-                    <h2 className="metric-value">{formatMonto(budgetTotal)}</h2>
+                    <h2 className="metric-value">{formatMonto(currentModeTotal)}</h2>
                 </div>
                 <div className="metric-card">
-                    <span className="metric-label">FECHA Y HORA ALTA</span>
+                    <span className="metric-label">FECHA Y HORA ALTA PR</span>
                     <h2 className="metric-value" style={{ fontSize: '1.2rem' }}>
                         {item.FchAltaRegistro ? (
                             <>
@@ -169,8 +199,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     </div>
                 </div>
                 <div className="metric-card">
-                    <span className="metric-label">ÍTEMS</span>
-                    <h2 className="metric-value">{relatedItems?.length || 1}</h2>
+                    <span className="metric-label">ITEMS PR</span>
+                    <h2 className="metric-value">{relatedItems?.filter(ri => !!ri.CantidadPR).length || relatedItems?.length || 1}</h2>
                 </div>
             </div>
         );
@@ -295,24 +325,34 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                         </tr>
                     </thead>
                     <tbody>
-                        {relatedItems.map((ri, idx) => (
-                            <tr key={idx} className={ri === item ? 'current-item' : ''}>
-                                <td>
-                                    <div style={{ fontWeight: '600' }}>{ri.DescrpProd}</div>
-                                    {ri.ObservacionesItem && (
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                            {ri.ObservacionesItem}
-                                        </div>
-                                    )}
-                                </td>
-                                <td>{ri.Cantidad}</td>
-                                <td>{formatMonto(ri.Precio)}</td>
-                                <td className="bold">{formatMonto(ri.TotalItem)}</td>
-                                <td>{ri.FacturaAsociadaOP || '-'}</td>
-                                <td className="client-cell">{ri.NomCliente || '-'}</td>
-                            </tr>
-                        ))}
+                        {relatedItems.map((ri, idx) => {
+                            const values = getItemValues(ri);
+                            return (
+                                <tr key={idx} className={ri === item ? 'current-item' : ''}>
+                                    <td>
+                                        <div style={{ fontWeight: '600' }}>{ri.DescrpProd}</div>
+                                        {ri.ObservacionesItem && (
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                {ri.ObservacionesItem}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td>{values.cantidad}</td>
+                                    <td className="amount-cell">{formatMonto(values.precio)}</td>
+                                    <td className="amount-cell bold">{formatMonto(values.total)}</td>
+                                    <td>{ri.FacturaAsociadaOP || '-'}</td>
+                                    <td className="client-cell">{ri.NomCliente || '-'}</td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
+                    <tfoot>
+                        <tr className="table-footer-row">
+                            <td colSpan="3" className="footer-label">TOTAL {mode === 'presupuesto' ? 'PRESUPUESTADO' : (mode === 'carga' ? 'DE CARGA' : 'GENERAL')}</td>
+                            <td className="footer-value amount-cell">{formatMonto(currentModeTotal)}</td>
+                            <td colSpan="2"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>

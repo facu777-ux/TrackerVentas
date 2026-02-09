@@ -214,14 +214,26 @@ router.post("/", async (req, res) => {
                 
                 -- DATOS DE ITEMS (unión de PR y Carga)
                 itms.NroItm,
-                COALESCE(i.FCRMVI_TIPPRO, gt.TipProI) AS TipPro,
-                COALESCE(i.FCRMVI_ARTCOD, gt.ArtCodI) AS ArtCod,
-                COALESCE(sth.STMPDH_DESCRP, sth2.STMPDH_DESCRP, '(Item Adicional en Carga)') AS DescrpProd,
-                COALESCE(i.FCRMVI_CANTID, gt.CantI, 0) AS Cantidad,
-                COALESCE(sth.STMPDH_UNIMED, sth2.STMPDH_UNIMED) AS UnidadMedida,
-                COALESCE(i.FCRMVI_PRECIO, gt.PrecI, 0) AS Precio,
-                ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga) AS TotalItem,
-                COALESCE(i.FCRMVI_TEXTOS, gt.ObservI) AS ObservacionesItem,
+                COALESCE(gt.TipProI, i.FCRMVI_TIPPRO) AS TipPro,
+                COALESCE(gt.ArtCodI, i.FCRMVI_ARTCOD) AS ArtCod,
+                COALESCE(sth2.STMPDH_DESCRP, sth.STMPDH_DESCRP, '(Item Adicional en Carga)') AS DescrpProd,
+                
+                -- Datos Específicos de PR
+                i.FCRMVI_CANTID AS CantidadPR,
+                i.FCRMVI_PRECIO AS PrecioPR,
+                i.FCRMVI_TOTLIN AS TotalItemPR,
+                
+                -- Datos Específicos de Carga
+                gt.CantI AS CantidadCarga,
+                gt.PrecI AS PrecioCarga,
+                gt.TotalItemCarga AS TotalItemCarga,
+
+                -- Mantenemos COALESCE para compatibilidad y vista general (priorizando ejecución)
+                COALESCE(gt.CantI, i.FCRMVI_CANTID, 0) AS Cantidad,
+                COALESCE(sth2.STMPDH_UNIMED, sth.STMPDH_UNIMED) AS UnidadMedida,
+                COALESCE(gt.PrecI, i.FCRMVI_PRECIO, 0) AS Precio,
+                COALESCE(gt.TotalItemCarga, i.FCRMVI_TOTLIN, 0) AS TotalItem,
+                COALESCE(gt.ObservI, i.FCRMVI_TEXTOS) AS ObservacionesItem,
                 
                 -- DATOS DE CARGA (puede ser NULL si PR sin carga)
                 gt.EmpreCarga AS EmpresaCarga,
@@ -334,14 +346,25 @@ router.post("/", async (req, res) => {
                 
                 -- DATOS DE ITEMS
                 itms.NroItm,
-                COALESCE(i.FCRMVI_TIPPRO, gt.TipProI),
-                COALESCE(i.FCRMVI_ARTCOD, gt.ArtCodI),
-                COALESCE(sth.STMPDH_DESCRP, sth2.STMPDH_DESCRP, '(Item Adicional en Carga)'),
-                COALESCE(i.FCRMVI_CANTID, gt.CantI, 0),
-                COALESCE(sth.STMPDH_UNIMED, sth2.STMPDH_UNIMED),
-                COALESCE(i.FCRMVI_PRECIO, gt.PrecI, 0),
-                ISNULL(i.FCRMVI_TOTLIN, gt.TotalItemCarga),
-                COALESCE(i.FCRMVI_TEXTOS, gt.ObservI),
+                COALESCE(gt.TipProI, i.FCRMVI_TIPPRO),
+                COALESCE(gt.ArtCodI, i.FCRMVI_ARTCOD),
+                COALESCE(sth2.STMPDH_DESCRP, sth.STMPDH_DESCRP, '(Item Adicional en Carga)'),
+                
+                -- Específicos PR
+                i.FCRMVI_CANTID,
+                i.FCRMVI_PRECIO,
+                i.FCRMVI_TOTLIN,
+                
+                -- Específicos Carga
+                gt.CantI,
+                gt.PrecI,
+                gt.TotalItemCarga,
+
+                COALESCE(gt.CantI, i.FCRMVI_CANTID, 0),
+                COALESCE(sth2.STMPDH_UNIMED, sth.STMPDH_UNIMED),
+                COALESCE(gt.PrecI, i.FCRMVI_PRECIO, 0),
+                COALESCE(gt.TotalItemCarga, i.FCRMVI_TOTLIN, 0),
+                COALESCE(gt.ObservI, i.FCRMVI_TEXTOS),
                 
                 -- DATOS DE CARGA
                 gt.EmpreCarga,
