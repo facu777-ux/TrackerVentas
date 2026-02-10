@@ -4,6 +4,7 @@
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border-primary);
   overflow: visible; /* Cambiado de hidden para permitir sticky header */
+  min-height: 550px; /* Evitar que se achate cuando hay pocos resultados */
 }
 
 /* Header */
@@ -91,6 +92,12 @@
 /* Table */
 .table-wrapper {
   overflow-x: auto;
+  position: relative;
+}
+
+.table-wrapper.filter-open {
+  overflow: visible !important;
+  z-index: 5001;
 }
 
 .results-table {
@@ -810,24 +817,29 @@
   opacity: 0.3;
 }
 
-/* Excel Style Filters */
 .excel-filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  background: white;
-  border: 1px solid #c5c5c5;
-  border-radius: 2px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-  z-index: 200;
-  min-width: 280px;
-  margin-top: 5px;
-  color: #333;
-  padding: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+  z-index: 5002;
+  min-width: 320px;
+  max-width: 450px;
+  margin-top: 8px;
+  color: var(--text-primary);
+  padding: 10px 0;
   text-transform: none;
-  font-weight: 400;
-  text-align: left; /* Asegurar que no herede el alineado a la derecha del header */
-  animation: slideDown 0.15s ease-out;
+  font-weight: 500;
+  text-align: left;
+  animation: slideDown 0.15s cubic-bezier(0, 0, 0.2, 1);
+}
+
+.excel-filter-dropdown.align-right {
+  left: auto;
+  right: 0;
 }
 
 [data-theme='dark'] .excel-filter-dropdown {
@@ -885,16 +897,37 @@
 .excel-filter-search {
   padding: 8px 10px;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .excel-filter-search input {
-  width: 100%;
+  flex: 1;
   padding: 6px 10px 6px 30px;
   border: 1px solid #ccc;
   border-radius: 2px;
   font-size: 0.85rem;
   background: white !important;
   color: #333 !important;
+}
+
+.filter-only-results-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.filter-only-results-btn:hover {
+  background: var(--dibiagi-blue);
+  transform: translateY(-1px);
 }
 
 [data-theme='dark'] .excel-filter-search input {

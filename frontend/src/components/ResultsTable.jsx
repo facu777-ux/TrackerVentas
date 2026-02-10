@@ -180,6 +180,11 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         }
     }, [activeFilter, estadoSubFilter]);
 
+    // EFECTO: Resetear paginación al cambiar filtros
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas]);
+
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
 
     // Cierre de modales al hacer click afuera
@@ -591,11 +596,13 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         );
 
         const handleSelectAll = (checked) => {
+            const next = new Set(tempSelected);
             if (checked) {
-                setTempSelected(new Set(options));
+                filteredOptions.forEach(opt => next.add(opt));
             } else {
-                setTempSelected(new Set());
+                filteredOptions.forEach(opt => next.delete(opt));
             }
+            setTempSelected(next);
         };
 
         const handleToggleOption = (opt) => {
@@ -606,11 +613,19 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         };
 
         const handleAccept = () => {
+            // Si el usuario tiene un término de búsqueda activo y no ha interactuado mucho,
+            // asumimos que quiere filtrar por lo que está viendo.
+            let selectionToApply = new Set(tempSelected);
+            if (filterSearchTerm && filteredOptions.length > 0) {
+                // Si hay búsqueda activa y no se ha desmarcado todo, aplicamos el filtro de lo que se ve
+                selectionToApply = new Set(filteredOptions);
+            }
+
             // Manejo de Clientes/Presupuestos
-            if (tempSelected.size === options.length) {
+            if (selectionToApply.size === options.length) {
                 isPR ? setSelectedPresupuestos(null) : setSelectedClientes(null);
             } else {
-                isPR ? setSelectedPresupuestos(new Set(tempSelected)) : setSelectedClientes(new Set(tempSelected));
+                isPR ? setSelectedPresupuestos(selectionToApply) : setSelectedClientes(selectionToApply);
             }
             
             // Manejo de Monedas (solo para cliente)
@@ -623,6 +638,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
             }
 
             isPR ? setShowPRFilter(false) : setShowClienteFilter(false);
+            setFilterSearchTerm('');
             setCurrentPage(1);
         };
 
@@ -699,6 +715,9 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                         placeholder="Buscar..." 
                         value={filterSearchTerm}
                         onChange={(e) => setFilterSearchTerm(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleAccept();
+                        }}
                         autoFocus
                     />
                     <FaSearch className="filter-search-icon" />
@@ -708,21 +727,25 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                     <label className="filter-list-item">
                         <input 
                             type="checkbox" 
-                            checked={tempSelected.size === options.length}
+                            checked={filteredOptions.length > 0 && filteredOptions.every(opt => tempSelected.has(opt))}
                             onChange={(e) => handleSelectAll(e.target.checked)}
                         />
-                        <span>(Seleccionar todo)</span>
+                        <span>{filterSearchTerm ? '(Seleccionar todos los resultados)' : '(Seleccionar todo)'}</span>
                     </label>
-                    {filteredOptions.map(opt => (
-                        <label key={opt} className="filter-list-item">
-                            <input 
-                                type="checkbox" 
-                                checked={tempSelected.has(opt)}
-                                onChange={() => handleToggleOption(opt)}
-                            />
-                            <span>{opt}</span>
-                        </label>
-                    ))}
+                    {filteredOptions.length === 0 ? (
+                        <div className="filter-no-results">No se encontraron resultados</div>
+                    ) : (
+                        filteredOptions.map(opt => (
+                            <label key={opt} className="filter-list-item">
+                                <input 
+                                    type="checkbox" 
+                                    checked={tempSelected.has(opt)}
+                                    onChange={() => handleToggleOption(opt)}
+                                />
+                                <span>{opt}</span>
+                            </label>
+                        ))
+                    )}
                 </div>
 
                 <div className="excel-filter-footer">
@@ -1133,7 +1156,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                         N° Presupuesto / Fecha 
                                         <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedPresupuestos ? 1 : 0.5, color: selectedPresupuestos ? 'var(--primary-color)' : 'inherit' }} />
                                     </div>
-                                    {showPRFilter && renderExcelFilter('pr')}
+                                    {!isMobile && showPRFilter && renderExcelFilter('pr')}
                                 </th>
                                 <th 
                                     className="py-4 font-medium relative clickable-header" 
@@ -1218,7 +1241,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                         {getSortIcon('cliente_monto')} Cliente / Monto 
                                         <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedClientes ? 1 : 0.5, color: selectedClientes ? 'var(--primary-color)' : 'inherit' }} />
                                     </div>
-                                    {showClienteFilter && renderExcelFilter('cliente')}
+                                    {!isMobile && showClienteFilter && renderExcelFilter('cliente', 'right')}
                                 </th>
                             </tr>
                         </thead>
@@ -1451,9 +1474,9 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 </div>
             )}
 
-            {showPRFilter && renderExcelFilter('pr')}
-            {showClienteFilter && renderExcelFilter('cliente')}
-            {showEstadoModal && renderEstadoModal()}
+            {isMobile && showPRFilter && renderExcelFilter('pr')}
+            {isMobile && showClienteFilter && renderExcelFilter('cliente')}
+            {isMobile && showEstadoModal && renderEstadoModal()}
 
             {selectedItem && (() => {
                 const group = groupedData.find(g => {
