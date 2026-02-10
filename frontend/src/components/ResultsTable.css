@@ -1061,8 +1061,332 @@
   right: 0;
 }
 
-/* Evitar que el filtro se corte cuando hay pocos resultados */
-.table-wrapper.filter-open {
-  min-height: 550px;
-  padding-bottom: 100px;
+/* ==================== MOBILE CARD VIEW STYLES ==================== */
+
+.mobile-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.mobile-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-card.expanded {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-color);
+}
+
+.mobile-card-header {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: var(--bg-accents-1);
+  border-bottom: 1px solid var(--border-primary);
+  cursor: pointer;
+}
+
+.mobile-card-pr {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pr-number {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--primary-color);
+}
+
+.pr-date {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.mobile-card-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.mobile-card-status .expand-icon {
+  font-size: 1rem;
+  color: var(--text-tertiary);
+  transition: transform 0.3s ease;
+}
+
+.mobile-card-status .expand-icon.rotated {
+  transform: rotate(180deg);
+  color: var(--primary-color);
+}
+
+.mobile-card-body {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.mobile-card-client {
+  font-size: 1rem;
+  color: var(--text-primary);
+  max-width: 60%;
+}
+
+.mobile-card-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mobile-card-leyenda {
+  padding: 0 1.25rem 1.25rem 1.25rem;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.mobile-card-details {
+  background: var(--bg-background);
+  border-top: 1px solid var(--border-primary);
+}
+
+.mobile-carga-item {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border-primary);
+  cursor: pointer;
+}
+
+.mobile-carga-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-carga-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.mobile-carga-title svg:first-child {
+  color: var(--warning-color);
+}
+
+.view-icon {
+  margin-left: auto;
+  color: var(--primary-color);
+  opacity: 0.6;
+}
+
+.urgency-badge {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Vertical Timeline for Mobile Cards */
+.mobile-vertical-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-left: 0.5rem;
+  position: relative;
+}
+
+.mobile-vertical-timeline::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--border-primary);
+}
+
+.timeline-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.step-marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.timeline-step.completed .step-marker {
+  background: var(--success-color);
+  border-color: var(--success-color);
+  color: white;
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.step-sub {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+/* ==================== MOBILE SUB-FILTERS ==================== */
+
+.mobile-sub-filters-btns {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: none;
+}
+
+.mobile-sub-filters-btns::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-sub-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  background: var(--bg-accents-1);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.mobile-sub-filter-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+/* Mobile Full Screen Filter */
+.excel-filter-dropdown.mobile-full {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+}
+
+.excel-filter-mobile-header {
+  padding: 1rem;
+  background: var(--primary-color);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.excel-filter-mobile-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.close-filter-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.excel-filter-mobile-search {
+  padding: 1rem;
+  position: relative;
+}
+
+.excel-filter-mobile-search input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius);
+  background: var(--bg-background);
+  color: var(--text-primary);
+}
+
+.mobile-search-icon {
+  position: absolute;
+  left: 1.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+}
+
+/* Status Dropdown Mobile */
+@media (max-width: 768px) {
+  .status-dropdown {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80vw;
+    background: var(--bg-surface);
+    box-shadow: 0 0 0 100vw rgba(0,0,0,0.5);
+    border-radius: 12px;
+    z-index: 3000;
+  }
+}
+
+.excel-filter-search.mobile-search-styled {
+  padding: 1rem;
+}
+
+.excel-filter-search.mobile-search-styled input {
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  font-size: 1rem;
+}
+
+.excel-filter-search.mobile-search-styled .filter-search-icon {
+  left: 25px;
 }

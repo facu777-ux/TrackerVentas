@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import './DetailModal.css';
 import './EstadoFlujo.css';
 
-const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex, totalItems, budgetTotal, relatedItems }) => {
+const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex, totalItems, budgetTotal, relatedItems, isMobile }) => {
     const [activeTab, setActiveTab] = useState('general');
 
     // Mapear el modo a la pestaña correspondiente al abrir

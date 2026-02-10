@@ -19,6 +19,7 @@
     --border-secondary: #dddddd;
 
     --primary-color: var(--dibiagi-blue);
+    --primary-rgb: 0, 51, 153; 
     --primary-fg: #ffffff;
     --secondary-color: var(--dibiagi-red);
 
@@ -66,6 +67,7 @@
 
     /* Ajuste del azul para mejor contraste en oscuro */
     --primary-color: #3291ff;
+    --primary-rgb: 50, 145, 255;
     --primary-fg: #000000;
 
     --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);

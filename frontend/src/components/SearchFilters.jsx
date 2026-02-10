@@ -3,7 +3,7 @@ import { FaSearch, FaCalendarAlt, FaBuilding, FaUser, FaFileAlt, FaTimes, FaChev
 import { seguimientoAPI } from '../services/api';
 import './SearchFilters.css';
 
-const SearchFilters = ({ onSearch, loading, isCollapsed }) => {
+const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
   const [filters, setFilters] = useState({
     empresa: '',
     fechaDesde: '2024-01-01',
@@ -118,20 +118,35 @@ const SearchFilters = ({ onSearch, loading, isCollapsed }) => {
 
   return (
     <div className="search-filters-container fade-in">
-      <div className="filters-header">
-        <h2 className="filters-title">
-          <FaSearch className="icon" />
-          Filtros de Búsqueda
-        </h2>
-        <button
-          type="button"
-          className="toggle-advanced-btn"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
-          {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
-          {showAdvanced ? <FaChevronUp style={{ marginLeft: '8px' }} /> : <FaChevronDown style={{ marginLeft: '8px' }} />}
-        </button>
-      </div>
+      {!hideTitle && (
+        <div className="filters-header">
+          <h2 className="filters-title">
+            <FaSearch className="icon" />
+            Filtros de Búsqueda
+          </h2>
+          <button
+            type="button"
+            className="toggle-advanced-btn"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
+            {showAdvanced ? <FaChevronUp style={{ marginLeft: '8px' }} /> : <FaChevronDown style={{ marginLeft: '8px' }} />}
+          </button>
+        </div>
+      )}
+
+      {hideTitle && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <button
+            type="button"
+            className="toggle-advanced-btn"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
+            {showAdvanced ? <FaChevronUp style={{ marginLeft: '8px' }} /> : <FaChevronDown style={{ marginLeft: '8px' }} />}
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="filters-form">
         {/* Filtros Principales */}

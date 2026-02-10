@@ -15,14 +15,18 @@ import {
     FaEye,
     FaChevronDown,
     FaChevronUp,
-    FaClock
+    FaClock,
+    FaFileAlt,
+    FaUser,
+    FaInfoCircle,
+    FaTimes
 } from 'react-icons/fa';
 import { format, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
 import './ResultsTable.css';
 
-const ResultsTable = ({ data, allData, loading, activeFilter }) => {
+const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     // Helpers
     const getBudgetContext = (item) => {
         const nroPR = item.NroPR || item.NroSolicitud;
@@ -558,7 +562,15 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
         };
 
         return (
-            <div className={`excel-filter-dropdown align-${align}`} onClick={e => e.stopPropagation()}>
+            <div className={`excel-filter-dropdown align-${align} ${isMobile ? 'mobile-full' : ''}`} onClick={e => e.stopPropagation()}>
+                {isMobile && (
+                    <div className="excel-filter-mobile-header">
+                        <h3>Filtrar por {isPR ? 'N° Presupuesto' : 'Cliente'}</h3>
+                        <button className="close-filter-btn" onClick={() => isPR ? setShowPRFilter(false) : setShowClienteFilter(false)}>
+                            <FaTimes />
+                        </button>
+                    </div>
+                )}
                 <div className="excel-filter-sort">
                     <div className="filter-sort-item" onClick={() => { 
                         setSortConfig({ key: isPR ? 'presupuesto' : 'cliente_monto', direction: 'asc' }); 
@@ -588,6 +600,8 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                     <FaTimesCircle /> Borrar filtro de "{isPR ? 'Prespuesto' : 'Cliente'}"
                 </div>
 
+                {isMobile && <div className="excel-filter-divider" />}
+
                 {!isPR && (
                     <>
                         <div className="excel-filter-section-title">Filtrar por Moneda:</div>
@@ -607,7 +621,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                     </>
                 )}
 
-                <div className="excel-filter-search">
+                <div className={`excel-filter-search ${isMobile ? 'mobile-search-styled' : ''}`}>
                     <input 
                         type="text" 
                         placeholder="Buscar..." 
@@ -618,7 +632,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                     <FaSearch className="filter-search-icon" />
                 </div>
 
-                <div className="excel-filter-list">
+                <div className="excel-filter-list" style={isMobile ? { flex: 1, margin: '0 1rem 1rem 1rem' } : {}}>
                     <label className="filter-list-item">
                         <input 
                             type="checkbox" 
@@ -781,6 +795,116 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
         );
     };
 
+    const renderMobileCards = () => {
+        if (!currentGroups || currentGroups.length === 0) {
+            return (
+                <div className="no-data-container">
+                    <FaExclamationCircle className="no-data-icon" />
+                    <h3>No se encontraron resultados</h3>
+                    <p>Intenta ajustar los filtros de búsqueda</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="mobile-cards-container fade-in">
+                {currentGroups.map((group) => {
+                    const status = getEstadoInfo(group.info);
+                    const isExpanded = expandedPresupuestos.has(group.key);
+                    
+                    return (
+                        <div key={group.key} className={`mobile-card ${isExpanded ? 'expanded' : ''}`}>
+                            <div className="mobile-card-header" onClick={() => togglePresupuesto(group.key)}>
+                                <div className="mobile-card-pr">
+                                    <span className="pr-number">PR {group.presupuesto}</span>
+                                    <span className="pr-date">{formatFecha(group.info.FchMovimiento)}</span>
+                                </div>
+                                <div className="mobile-card-status">
+                                    <span className={`badge ${status.class}`}>{status.text}</span>
+                                    <FaChevronDown className={`expand-icon ${isExpanded ? 'rotated' : ''}`} />
+                                </div>
+                            </div>
+                            
+                            <div className="mobile-card-body" onClick={() => togglePresupuesto(group.key)}>
+                                <div className="mobile-card-client">
+                                    <strong>{group.info.NomCliente}</strong>
+                                </div>
+                                <div className="mobile-card-amount">
+                                    {formatMonto(group.budgetTotal, group.info.Moneda)}
+                                </div>
+                            </div>
+
+                            {activeFilter !== 'all' && (
+                                <div className="mobile-card-leyenda">
+                                    {renderLeyenda(group.info)}
+                                </div>
+                            )}
+
+                            {isExpanded && (
+                                <div className="mobile-card-details">
+                                    {group.cargasArray.map((cargaGroup, idx) => {
+                                        const isFacturado = cargaGroup.info.FacturaAsociadaOP && 
+                                            !cargaGroup.info.FacturaAsociadaOP.includes('CARGA NO FACTURADA') && 
+                                            !cargaGroup.info.FacturaAsociadaOP.includes('Pendiente');
+                                        const urgency = getUrgencyInfo(cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento, 
+                                            (cargaGroup.carga && !isFacturado) ? 'No Facturado' : '');
+
+                                        return (
+                                            <div key={idx} className="mobile-carga-item" onClick={(e) => handleRowClick(cargaGroup.info, e)}>
+                                                <div className="mobile-carga-title">
+                                                    {cargaGroup.carga ? (
+                                                        <>
+                                                            <FaTruck /> Carga № {cargaGroup.carga}
+                                                            {urgency && (
+                                                                <span className="urgency-badge">
+                                                                    <FaClock /> {urgency.days}d
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <strong>Items sin carga</strong>
+                                                    )}
+                                                    <FaEye className="view-icon" />
+                                                </div>
+                                                
+                                                {cargaGroup.carga && (
+                                                    <div className="mobile-vertical-timeline">
+                                                        {[
+                                                            { label: 'PR', sub: `Nº ${group.presupuesto}`, completed: true },
+                                                            { label: 'Carga', sub: `Nº ${cargaGroup.carga}`, completed: true },
+                                                            { label: 'Factura', sub: cargaGroup.info.FacturaAsociadaOP || 'Pendiente', completed: isFacturado },
+                                                            { label: 'Recibo', sub: cargaGroup.info.ReciboCobranza || 'Pendiente', completed: cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente') }
+                                                        ].map((step, sIdx) => (
+                                                            <div key={sIdx} className={`timeline-step ${step.completed ? 'completed' : ''}`}>
+                                                                <div className="step-marker">{sIdx + 1}</div>
+                                                                <div className="step-info">
+                                                                    <span className="step-label">{step.label}</span>
+                                                                    <span className="step-sub">{step.sub}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {!cargaGroup.carga && (
+                                                    <div className="mobile-no-carga-status">
+                                                        <span className={`badge ${getEstadoInfo(cargaGroup.info).class}`}>
+                                                            {getEstadoInfo(cargaGroup.info).text}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
     if (loading) {
         return (
             <div className="loading-container">
@@ -816,6 +940,37 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                     <span className="results-count">
                         {groupedData.length} presupuesto{groupedData.length !== 1 ? 's' : ''} encontrado{groupedData.length !== 1 ? 's' : ''}
                     </span>
+                    {isMobile && (
+                        <div className="mobile-sub-filters-btns">
+                            <button 
+                                className={`mobile-sub-filter-btn ${selectedPresupuestos ? 'active' : ''}`}
+                                onClick={() => {
+                                    setFilterSearchTerm('');
+                                    setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
+                                    setShowPRFilter(true);
+                                }}
+                            >
+                                <FaFileAlt /> PR
+                            </button>
+                            <button 
+                                className={`mobile-sub-filter-btn ${selectedClientes || selectedMonedas ? 'active' : ''}`}
+                                onClick={() => {
+                                    setFilterSearchTerm('');
+                                    setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
+                                    setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
+                                    setShowClienteFilter(true);
+                                }}
+                            >
+                                <FaUser /> Cliente
+                            </button>
+                            <button 
+                                className={`mobile-sub-filter-btn ${estadoSubFilter !== 'all' ? 'active' : ''}`}
+                                onClick={() => setShowEstadoModal(true)}
+                            >
+                                <FaInfoCircle /> Estado
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div className="table-actions">
                     <div className="search-bar-container">
@@ -863,243 +1018,247 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                 <span>Haz clic en los presupuestos para expandir/contraer. Haz clic en las cargas o en el icono del ojo para ver detalles.</span>
             </div>
 
-            {/* Tabla jerárquica */}
-            <div className={`table-wrapper ${(showPRFilter || showClienteFilter || showEstadoModal) ? 'filter-open' : ''}`}>
-                <table className="results-table hierarchical-table" style={{ tableLayout: 'fixed', width: '100%' }}>
-                    <colgroup>
-                        <col style={{ width: '30%' }} />
-                        <col style={{ width: '40%' }} />
-                        <col style={{ width: '30%' }} />
-                    </colgroup>
-                    <thead>
-                        <tr className="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider border-b border-slate-800">
-                            <th 
-                                className="py-4 font-medium clickable-header relative" 
-                                style={{ textAlign: 'left', paddingLeft: '2.5rem' }}
-                            >
-                                <div 
-                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilterSearchTerm('');
-                                        setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
-                                        setShowPRFilter(!showPRFilter);
-                                        setShowClienteFilter(false);
-                                        setShowEstadoModal(false);
-                                    }}
+            {/* Tabla jerárquica / Vista de Tarjetas Móvil */}
+            {isMobile ? (
+                renderMobileCards()
+            ) : (
+                <div className={`table-wrapper ${(showPRFilter || showClienteFilter || showEstadoModal) ? 'filter-open' : ''}`}>
+                    <table className="results-table hierarchical-table" style={{ tableLayout: 'fixed', width: '100%' }}>
+                        <colgroup>
+                            <col style={{ width: '30%' }} />
+                            <col style={{ width: '40%' }} />
+                            <col style={{ width: '30%' }} />
+                        </colgroup>
+                        <thead>
+                            <tr className="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider border-b border-slate-800">
+                                <th 
+                                    className="py-4 font-medium clickable-header relative" 
+                                    style={{ textAlign: 'left', paddingLeft: '2.5rem' }}
                                 >
-                                    N° Presupuesto / Fecha 
-                                    <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedPresupuestos ? 1 : 0.5, color: selectedPresupuestos ? 'var(--primary-color)' : 'inherit' }} />
-                                </div>
-                                {showPRFilter && renderExcelFilter('pr')}
-                            </th>
-                            <th 
-                                className="py-4 font-medium relative clickable-header" 
-                                style={{ textAlign: 'center' }}
-                            >
-                                <div 
-                                    style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'center', 
-                                        gap: '0.5rem',
-                                        cursor: activeFilter === 'sinCarga' ? 'default' : 'pointer' 
-                                    }}
-                                    onClick={() => {
-                                        if (activeFilter !== 'sinCarga') {
-                                            setShowEstadoModal(!showEstadoModal);
-                                        }
-                                    }}
-                                >
-                                    Estado <FaChevronDown style={{ 
-                                        fontSize: '0.8rem', 
-                                        opacity: activeFilter === 'sinCarga' ? 0.2 : 1,
-                                        display: activeFilter === 'sinCarga' ? 'none' : 'block'
-                                    }} />
-                                </div>
-
-                                {/* Mini Modal / Dropdown para Estado */}
-                                {showEstadoModal && (
-                                    <div className="status-dropdown fade-in">
-                                        <div 
-                                            className={`dropdown-item ${estadoSubFilter === 'all' ? 'active' : ''}`}
-                                            onClick={() => { setEstadoSubFilter('all'); setShowEstadoModal(false); }}
-                                        >
-                                            Todos
-                                        </div>
-
-                                        {(activeFilter === 'all' || activeFilter === 'facturados') && (
-                                            <div 
-                                                className={`dropdown-item ${estadoSubFilter === 'facturado' ? 'active' : ''}`}
-                                                onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
-                                            >
-                                                Facturado
-                                            </div>
-                                        )}
-
-                                        {(activeFilter === 'all' || activeFilter === 'enCarga') && (
-                                            <div 
-                                                className={`dropdown-item ${estadoSubFilter === 'noFacturado' ? 'active' : ''}`}
-                                                onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
-                                            >
-                                                No Facturado
-                                            </div>
-                                        )}
-
-                                        {(activeFilter === 'all' || activeFilter === 'facturados') && (
-                                            <div 
-                                                className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
-                                                onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
-                                            >
-                                                Pagado
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </th>
-                            <th 
-                                className="py-4 font-medium relative clickable-header" 
-                                style={{ textAlign: 'right', paddingRight: '2.5rem' }}
-                            >
-                                <div 
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', cursor: 'pointer' }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilterSearchTerm('');
-                                        setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
-                                        setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
-                                        setShowClienteFilter(!showClienteFilter);
-                                        setShowPRFilter(false);
-                                        setShowEstadoModal(false);
-                                    }}
-                                >
-                                    {getSortIcon('cliente_monto')} Cliente / Monto 
-                                    <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedClientes ? 1 : 0.5, color: selectedClientes ? 'var(--primary-color)' : 'inherit' }} />
-                                </div>
-                                {showClienteFilter && renderExcelFilter('cliente', 'right')}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {currentGroups.map((group) => {
-                            const isPresupuestoExpanded = expandedPresupuestos.has(group.key);
-                            const cargasArray = group.cargasArray; // Ya viene ordenado
-
-                            return (
-                                <React.Fragment key={group.key}>
-                                    {/* Fila del Presupuesto */}
-                                    <tr
-                                        className={`presupuesto-row ${isPresupuestoExpanded ? 'expanded' : ''}`}
-                                        onClick={() => togglePresupuesto(group.key)}
-                                        style={{ position: 'relative' }}
+                                    <div 
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFilterSearchTerm('');
+                                            setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
+                                            setShowPRFilter(!showPRFilter);
+                                            setShowClienteFilter(false);
+                                            setShowEstadoModal(false);
+                                        }}
                                     >
-                                        {/* Columna 1: Info Básica */}
-                                        <td className="py-5" style={{ textAlign: 'left', paddingLeft: '2.5rem' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                                                <span className="font-bold text-white" style={{ fontSize: '1rem' }}>
-                                                    {<span style={{ color: 'var(--primary-color)', marginRight: '2px', fontSize: '1.2rem' }}>{group.presupuesto}</span>}
-                                                </span>
-                                                <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                                                    {formatFecha(group.info.FchMovimiento)}
-                                                </span>
-                                                {activeFilter !== 'all' && (
-                                                    <span className="presupuesto-leyenda" style={{ 
-                                                        fontSize: '0.7rem', 
-                                                        color: 'var(--text-secondary)', 
-                                                        marginTop: '4px',
-                                                        fontStyle: 'italic',
-                                                        opacity: 0.8
-                                                    }}>
-                                                        {renderLeyenda(group.info)}
-                                                    </span>
-                                                )}
+                                        N° Presupuesto / Fecha 
+                                        <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedPresupuestos ? 1 : 0.5, color: selectedPresupuestos ? 'var(--primary-color)' : 'inherit' }} />
+                                    </div>
+                                    {showPRFilter && renderExcelFilter('pr')}
+                                </th>
+                                <th 
+                                    className="py-4 font-medium relative clickable-header" 
+                                    style={{ textAlign: 'center' }}
+                                >
+                                    <div 
+                                        style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center', 
+                                            gap: '0.5rem',
+                                            cursor: activeFilter === 'sinCarga' ? 'default' : 'pointer' 
+                                        }}
+                                        onClick={() => {
+                                            if (activeFilter !== 'sinCarga') {
+                                                setShowEstadoModal(!showEstadoModal);
+                                            }
+                                        }}
+                                    >
+                                        Estado <FaChevronDown style={{ 
+                                            fontSize: '0.8rem', 
+                                            opacity: activeFilter === 'sinCarga' ? 0.2 : 1,
+                                            display: activeFilter === 'sinCarga' ? 'none' : 'block'
+                                        }} />
+                                    </div>
+
+                                    {/* Mini Modal / Dropdown para Estado */}
+                                    {showEstadoModal && (
+                                        <div className="status-dropdown fade-in">
+                                            <div 
+                                                className={`dropdown-item ${estadoSubFilter === 'all' ? 'active' : ''}`}
+                                                onClick={() => { setEstadoSubFilter('all'); setShowEstadoModal(false); }}
+                                            >
+                                                Todos
                                             </div>
-                                        </td>
 
-                                        {/* Columna 2: Estado y Botón Flotante */}
-                                        <td className="py-5 relative" style={{ textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                                {(() => {
-                                                    const status = getEstadoInfo(group.info);
-                                                    return <span className={`badge ${status.class}`} style={{ margin: '0 auto' }}>{status.text}</span>;
-                                                })()}
-                                            </div>
-
-                                            {/* Botón de Expansión Flotante Centrado en la Fila */}
-                                            <div className="presupuesto-expansion-toggle">
-                                                <FaChevronDown className={`toggle-icon ${isPresupuestoExpanded ? 'expanded' : ''}`} />
-                                            </div>
-                                        </td>
-
-                                        {/* Columna 3: Cliente / Monto */}
-                                        <td className="py-5" style={{ textAlign: 'right', paddingRight: '2.5rem' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                <strong className="text-white" style={{ display: 'block' }}>{group.info.NomCliente}</strong>
-                                                <span className="text-secondary font-bold" style={{ fontSize: '0.75rem' }}>
-                                                    {formatMonto(group.budgetTotal, group.info.Moneda)}
-                                                </span>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    {/* Cargas del Presupuesto */}
-                                    {isPresupuestoExpanded && cargasArray.map((cargaGroup) => {
-                                        const cargaKey = `${group.presupuesto}-${cargaGroup.carga || 'sin-carga'}`;
-
-                                        return (
-                                            <React.Fragment key={cargaKey}>
-                                                {/* Fila de la Carga */}
-                                                <tr
-                                                    className="carga-row clickable-row"
-                                                    onClick={(e) => handleRowClick(cargaGroup.info, e)}
-                                                    title="Haz clic para ver detalles del item"
+                                            {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                                                <div 
+                                                    className={`dropdown-item ${estadoSubFilter === 'facturado' ? 'active' : ''}`}
+                                                    onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
                                                 >
-                                                    <td colSpan="3">
-                                                        <div className="carga-row-container" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                                                            <div className="carga-header" style={{ position: 'absolute', left: '1rem' }}>
-                                                                {!cargaGroup.carga && (
-                                                                    <strong>Items sin carga</strong>
-                                                                )}
+                                                    Facturado
+                                                </div>
+                                            )}
+
+                                            {(activeFilter === 'all' || activeFilter === 'enCarga') && (
+                                                <div 
+                                                    className={`dropdown-item ${estadoSubFilter === 'noFacturado' ? 'active' : ''}`}
+                                                    onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
+                                                >
+                                                    No Facturado
+                                                </div>
+                                            )}
+
+                                            {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                                                <div 
+                                                    className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
+                                                    onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
+                                                >
+                                                    Pagado
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </th>
+                                <th 
+                                    className="py-4 font-medium relative clickable-header" 
+                                    style={{ textAlign: 'right', paddingRight: '2.5rem' }}
+                                >
+                                    <div 
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', cursor: 'pointer' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setFilterSearchTerm('');
+                                            setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
+                                            setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
+                                            setShowClienteFilter(!showClienteFilter);
+                                            setShowPRFilter(false);
+                                            setShowEstadoModal(false);
+                                        }}
+                                    >
+                                        {getSortIcon('cliente_monto')} Cliente / Monto 
+                                        <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedClientes ? 1 : 0.5, color: selectedClientes ? 'var(--primary-color)' : 'inherit' }} />
+                                    </div>
+                                    {showClienteFilter && renderExcelFilter('cliente', 'right')}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentGroups.map((group) => {
+                                const isPresupuestoExpanded = expandedPresupuestos.has(group.key);
+                                const cargasArray = group.cargasArray; // Ya viene ordenado
+
+                                return (
+                                    <React.Fragment key={group.key}>
+                                        {/* Fila del Presupuesto */}
+                                        <tr
+                                            className={`presupuesto-row ${isPresupuestoExpanded ? 'expanded' : ''}`}
+                                            onClick={() => togglePresupuesto(group.key)}
+                                            style={{ position: 'relative' }}
+                                        >
+                                            {/* Columna 1: Info Básica */}
+                                            <td className="py-5" style={{ textAlign: 'left', paddingLeft: '2.5rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                    <span className="font-bold text-white" style={{ fontSize: '1rem' }}>
+                                                        {<span style={{ color: 'var(--primary-color)', marginRight: '2px', fontSize: '1.2rem' }}>{group.presupuesto}</span>}
+                                                    </span>
+                                                    <span className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                                                        {formatFecha(group.info.FchMovimiento)}
+                                                    </span>
+                                                    {activeFilter !== 'all' && (
+                                                        <span className="presupuesto-leyenda" style={{ 
+                                                            fontSize: '0.7rem', 
+                                                            color: 'var(--text-secondary)', 
+                                                            marginTop: '4px',
+                                                            fontStyle: 'italic',
+                                                            opacity: 0.8
+                                                        }}>
+                                                            {renderLeyenda(group.info)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Columna 2: Estado y Botón Flotante */}
+                                            <td className="py-5 relative" style={{ textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                    {(() => {
+                                                        const status = getEstadoInfo(group.info);
+                                                        return <span className={`badge ${status.class}`} style={{ margin: '0 auto' }}>{status.text}</span>;
+                                                    })()}
+                                                </div>
+
+                                                {/* Botón de Expansión Flotante Centrado en la Fila */}
+                                                <div className="presupuesto-expansion-toggle">
+                                                    <FaChevronDown className={`toggle-icon ${isPresupuestoExpanded ? 'expanded' : ''}`} />
+                                                </div>
+                                            </td>
+
+                                            {/* Columna 3: Cliente / Monto */}
+                                            <td className="py-5" style={{ textAlign: 'right', paddingRight: '2.5rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                    <strong className="text-white" style={{ display: 'block' }}>{group.info.NomCliente}</strong>
+                                                    <span className="text-secondary font-bold" style={{ fontSize: '0.75rem' }}>
+                                                        {formatMonto(group.budgetTotal, group.info.Moneda)}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        {/* Cargas del Presupuesto */}
+                                        {isPresupuestoExpanded && cargasArray.map((cargaGroup) => {
+                                            const cargaKey = `${group.presupuesto}-${cargaGroup.carga || 'sin-carga'}`;
+
+                                            return (
+                                                <React.Fragment key={cargaKey}>
+                                                    {/* Fila de la Carga */}
+                                                    <tr
+                                                        className="carga-row clickable-row"
+                                                        onClick={(e) => handleRowClick(cargaGroup.info, e)}
+                                                        title="Haz clic para ver detalles del item"
+                                                    >
+                                                        <td colSpan="3">
+                                                            <div className="carga-row-container" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                                                                <div className="carga-header" style={{ position: 'absolute', left: '1rem' }}>
+                                                                    {!cargaGroup.carga && (
+                                                                        <strong>Items sin carga</strong>
+                                                                    )}
+                                                                </div>
+                                                                <div className="timeline-wrapper" style={{ flex: 1, padding: '0 5rem' }}>
+                                                                    {cargaGroup.carga && renderCompactTimeline(cargaGroup.info)}
+                                                                    {!cargaGroup.carga && (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                                                                            {(() => {
+                                                                                const status = getEstadoInfo(cargaGroup.info);
+                                                                                const urgency = getUrgencyInfo(cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento, status.text);
+                                                                                
+                                                                                return (
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                                        <span className={`badge ${status.class}`}>{status.text}</span>
+                                                                                        {urgency && (
+                                                                                            <span title={`Pendiente hace ${urgency.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                                                                                                <FaClock /> <span style={{ marginLeft: '2px', fontSize: '0.7rem', fontWeight: 'bold' }}>{urgency.days}d</span>
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                            <FaEye 
+                                                                                style={{ color: 'var(--primary-color)', fontSize: '1rem', opacity: 0.7, flexShrink: 0, cursor: 'pointer' }} 
+                                                                                title="Clic para ver detalles" 
+                                                                                onClick={(e) => handleRowClick(cargaGroup.info, e)}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                            <div className="timeline-wrapper" style={{ flex: 1, padding: '0 5rem' }}>
-                                                                {cargaGroup.carga && renderCompactTimeline(cargaGroup.info)}
-                                                                {!cargaGroup.carga && (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-                                                                        {(() => {
-                                                                            const status = getEstadoInfo(cargaGroup.info);
-                                                                            const urgency = getUrgencyInfo(cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento, status.text);
-                                                                            
-                                                                            return (
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                                    <span className={`badge ${status.class}`}>{status.text}</span>
-                                                                                    {urgency && (
-                                                                                        <span title={`Pendiente hace ${urgency.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
-                                                                                            <FaClock /> <span style={{ marginLeft: '2px', fontSize: '0.7rem', fontWeight: 'bold' }}>{urgency.days}d</span>
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                            );
-                                                                        })()}
-                                                                        <FaEye 
-                                                                            style={{ color: 'var(--primary-color)', fontSize: '1rem', opacity: 0.7, flexShrink: 0, cursor: 'pointer' }} 
-                                                                            title="Clic para ver detalles" 
-                                                                            onClick={(e) => handleRowClick(cargaGroup.info, e)}
-                                                                        />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </React.Fragment>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                                                        </td>
+                                                    </tr>
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Paginación Avanzada */}
             {totalPages > 1 && (
@@ -1230,6 +1389,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter }) => {
                         currentIndex={currentIndex}
                         budgetTotal={group?.budgetTotal || 0}
                         relatedItems={allItems}
+                        isMobile={isMobile}
                     />
                 );
             })()}

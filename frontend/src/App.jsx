@@ -29,6 +29,19 @@ function App() {
     return 'light';
   });
 
+  // Mobile Detection
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const isMobile = windowWidth < 768;
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Controlar expansión de sidebar en móvil (Overlay modal)
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
@@ -161,51 +174,83 @@ function App() {
             <div className="header-logo">
               <img src="/favicon.png" alt="Dibiagi Logo" className="logo-branding" />
               <div>
-                <h1 className="header-title">DIBIAGI - Tracking de Ventas</h1>
+                <h1 className="header-title">{isMobile ? 'Tracking Ventas' : 'DIBIAGI - Tracking de Ventas'}</h1>
                 <p className="header-subtitle">Sistema de Seguimiento de Documentación</p>
               </div>
             </div>
 
-            <button
-              className="theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle Dark Mode"
-              title={theme === 'light' ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
-            >
-              {theme === 'light' ? <FaMoon size={18} /> : <FaSun size={18} />}
-            </button>
+            <div className="header-actions">
+              <button
+                className="theme-toggle"
+                onClick={toggleTheme}
+                aria-label="Toggle Dark Mode"
+                title={theme === 'light' ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
+              >
+                {theme === 'light' ? <FaMoon size={18} /> : <FaSun size={18} />}
+              </button>
+
+              {isMobile && (
+                <button 
+                  className="mobile-filter-toggle"
+                  onClick={() => setShowMobileFilters(true)}
+                  aria-label="Ver filtros"
+                >
+                  Filtros
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="app-main">
-        {/* Sidebar fijo con botón de flecha */}
-        <aside className={`sidebar-fixed ${isSidebarCollapsed ? 'collapsed' : 'expanded'}`}>
+        {/* Sidebar / Drawer */}
+        <aside className={`
+          sidebar-fixed 
+          ${isMobile ? (showMobileFilters ? 'mobile-expanded' : 'mobile-collapsed') : (isSidebarCollapsed ? 'collapsed' : 'expanded')}
+        `}>
+          {/* Fondo oscuro para cerrar en móvil */}
+          {isMobile && showMobileFilters && (
+            <div className="sidebar-overlay" onClick={() => setShowMobileFilters(false)}></div>
+          )}
+
           {/* Contenido del sidebar */}
           <div className="sidebar-content">
+            {isMobile && (
+              <div className="sidebar-mobile-header">
+                <h3>Filtros de Búsqueda</h3>
+                <button onClick={() => setShowMobileFilters(false)}>Cerrar</button>
+              </div>
+            )}
             <SearchFilters 
-              onSearch={handleSearch} 
+              onSearch={(filtros) => {
+                handleSearch(filtros);
+                if (isMobile) setShowMobileFilters(false);
+              }} 
               loading={loading}
-              isCollapsed={isSidebarCollapsed}
+              isCollapsed={!isMobile && isSidebarCollapsed}
+              hideTitle={isMobile}
             />
           </div>
 
-          {/* Botón de toggle moderno */}
-          <button
-            className="sidebar-toggle-arrow"
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            title={isSidebarCollapsed ? "Expandir filtros" : "Contraer filtros"}
-          >
-            {isSidebarCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
-          </button>
+          {/* Botón de toggle escritorio */}
+          {!isMobile && (
+            <button
+              className="sidebar-toggle-arrow"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? "Expandir filtros" : "Contraer filtros"}
+            >
+              {isSidebarCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
+            </button>
+          )}
         </aside>
 
-        <div className="container main-container">
+        <div className={`container main-container ${isMobile ? 'mobile' : ''}`}>
           <div className="content-area">
             {/* Estadísticas */}
             {hasSearched && !loading && (
-              <div className="stats-grid fade-in">
+              <div className={`stats-grid fade-in ${isMobile ? 'mobile-stats' : ''}`}>
                 {/* Card: No Facturados (Prioridad 1) */}
                 <div
                   className={`stat-card ${activeFilter === 'enCarga' ? 'stat-card-active' : ''}`}
@@ -292,6 +337,7 @@ function App() {
                 allData={data}
                 loading={loading} 
                 activeFilter={activeFilter}
+                isMobile={isMobile}
               />
             )}
 
