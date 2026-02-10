@@ -205,16 +205,16 @@ function App() {
 
       {/* Main Content */}
       <main className="app-main">
+        {/* Fondo oscuro para cerrar en móvil */}
+        {isMobile && showMobileFilters && (
+          <div className="sidebar-overlay" onClick={() => setShowMobileFilters(false)}></div>
+        )}
+
         {/* Sidebar / Drawer */}
         <aside className={`
           sidebar-fixed 
           ${isMobile ? (showMobileFilters ? 'mobile-expanded' : 'mobile-collapsed') : (isSidebarCollapsed ? 'collapsed' : 'expanded')}
         `}>
-          {/* Fondo oscuro para cerrar en móvil */}
-          {isMobile && showMobileFilters && (
-            <div className="sidebar-overlay" onClick={() => setShowMobileFilters(false)}></div>
-          )}
-
           {/* Contenido del sidebar */}
           <div className="sidebar-content">
             {isMobile && (

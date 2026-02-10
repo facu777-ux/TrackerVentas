@@ -113,7 +113,7 @@
   top: 0;
   bottom: 0;
   width: 320px;
-  background: var(--bg-surface);
+  background-color: var(--bg-surface);
   border-right: 1px solid var(--border-primary);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
   z-index: 100;
@@ -182,6 +182,8 @@
   .sidebar-fixed {
     width: 280px;
     z-index: 2000;
+    background-color: var(--bg-surface);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
   }
   
   .sidebar-fixed.mobile-collapsed {
@@ -198,9 +200,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(2px);
-    z-index: -1;
+    z-index: 1999;
   }
 
   .sidebar-mobile-header {
@@ -213,7 +215,9 @@
   }
 
   .sidebar-mobile-header h3 {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
     margin: 0;
   }
 

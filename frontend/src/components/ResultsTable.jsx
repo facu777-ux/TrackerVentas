@@ -508,6 +508,59 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     };
 
     // Renderizar el dropdown estilo Excel
+    const renderEstadoModal = () => {
+        if (!isMobile) return null;
+
+        return (
+            <div className="excel-filter-dropdown mobile-full" onClick={e => e.stopPropagation()}>
+                <div className="excel-filter-mobile-header">
+                    <h3>Filtrar por Estado</h3>
+                    <button className="close-filter-btn" onClick={() => setShowEstadoModal(false)}>
+                        <FaTimes />
+                    </button>
+                </div>
+                <div className="excel-filter-list mobile-styled" style={{ flex: 1 }}>
+                    <div 
+                        className={`filter-list-item ${estadoSubFilter === 'all' ? 'active-mobile' : ''}`}
+                        onClick={() => { setEstadoSubFilter('all'); setShowEstadoModal(false); }}
+                    >
+                        <strong>Todos los estados</strong>
+                    </div>
+
+                    {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                        <div 
+                            className={`filter-list-item ${estadoSubFilter === 'facturado' ? 'active-mobile' : ''}`}
+                            onClick={() => { setEstadoSubFilter('facturado'); setShowEstadoModal(false); }}
+                        >
+                            Facturado
+                        </div>
+                    )}
+
+                    {(activeFilter === 'all' || activeFilter === 'enCarga') && (
+                        <div 
+                            className={`filter-list-item ${estadoSubFilter === 'noFacturado' ? 'active-mobile' : ''}`}
+                            onClick={() => { setEstadoSubFilter('noFacturado'); setShowEstadoModal(false); }}
+                        >
+                            No Facturado
+                        </div>
+                    )}
+
+                    {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                        <div 
+                            className={`filter-list-item ${estadoSubFilter === 'pagado' ? 'active-mobile' : ''}`}
+                            onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
+                        >
+                            Pagado
+                        </div>
+                    )}
+                </div>
+                <div className="excel-filter-footer">
+                    <button className="btn-filter-cancel" style={{ width: '100%' }} onClick={() => setShowEstadoModal(false)}>CERRAR</button>
+                </div>
+            </div>
+        );
+    };
+
     const renderExcelFilter = (type, align = 'left') => {
         const isPR = type === 'pr';
         const options = isPR ? uniquePresupuestos : uniqueClientes;
@@ -870,12 +923,20 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                                 {cargaGroup.carga && (
                                                     <div className="mobile-vertical-timeline">
                                                         {[
-                                                            { label: 'PR', sub: `Nº ${group.presupuesto}`, completed: true },
-                                                            { label: 'Carga', sub: `Nº ${cargaGroup.carga}`, completed: true },
-                                                            { label: 'Factura', sub: cargaGroup.info.FacturaAsociadaOP || 'Pendiente', completed: isFacturado },
-                                                            { label: 'Recibo', sub: cargaGroup.info.ReciboCobranza || 'Pendiente', completed: cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente') }
+                                                            { label: 'PR', sub: `Nº ${group.presupuesto}`, completed: true, mode: 'presupuesto' },
+                                                            { label: 'Carga', sub: `Nº ${cargaGroup.carga}`, completed: true, mode: 'carga' },
+                                                            { label: 'Factura', sub: cargaGroup.info.FacturaAsociadaOP || 'Pendiente', completed: isFacturado, mode: 'factura' },
+                                                            { label: 'Recibo', sub: cargaGroup.info.ReciboCobranza || 'Pendiente', completed: cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente'), mode: 'recibo' }
                                                         ].map((step, sIdx) => (
-                                                            <div key={sIdx} className={`timeline-step ${step.completed ? 'completed' : ''}`}>
+                                                            <div 
+                                                                key={sIdx} 
+                                                                className={`timeline-step ${step.completed ? 'completed' : ''}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedItem(cargaGroup.info);
+                                                                    setModalMode(step.mode);
+                                                                }}
+                                                            >
                                                                 <div className="step-marker">{sIdx + 1}</div>
                                                                 <div className="step-info">
                                                                     <span className="step-label">{step.label}</span>
@@ -925,7 +986,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     }
 
     return (
-        <div className="results-table-container fade-in">
+        <div className="results-table-container">
             {/* Header con búsqueda y exportación */}
             <div className="table-header">
                 <div className="table-info">
@@ -940,37 +1001,6 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                     <span className="results-count">
                         {groupedData.length} presupuesto{groupedData.length !== 1 ? 's' : ''} encontrado{groupedData.length !== 1 ? 's' : ''}
                     </span>
-                    {isMobile && (
-                        <div className="mobile-sub-filters-btns">
-                            <button 
-                                className={`mobile-sub-filter-btn ${selectedPresupuestos ? 'active' : ''}`}
-                                onClick={() => {
-                                    setFilterSearchTerm('');
-                                    setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
-                                    setShowPRFilter(true);
-                                }}
-                            >
-                                <FaFileAlt /> PR
-                            </button>
-                            <button 
-                                className={`mobile-sub-filter-btn ${selectedClientes || selectedMonedas ? 'active' : ''}`}
-                                onClick={() => {
-                                    setFilterSearchTerm('');
-                                    setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
-                                    setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
-                                    setShowClienteFilter(true);
-                                }}
-                            >
-                                <FaUser /> Cliente
-                            </button>
-                            <button 
-                                className={`mobile-sub-filter-btn ${estadoSubFilter !== 'all' ? 'active' : ''}`}
-                                onClick={() => setShowEstadoModal(true)}
-                            >
-                                <FaInfoCircle /> Estado
-                            </button>
-                        </div>
-                    )}
                 </div>
                 <div className="table-actions">
                     <div className="search-bar-container">
@@ -1019,6 +1049,41 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
             </div>
 
             {/* Tabla jerárquica / Vista de Tarjetas Móvil */}
+            {isMobile && (
+                <div className="mobile-filter-bar sticky-top fade-in">
+                    <button 
+                        className={`mobile-filter-pill ${selectedPresupuestos ? 'active' : ''}`}
+                        onClick={() => {
+                            setFilterSearchTerm('');
+                            setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
+                            setShowPRFilter(true);
+                        }}
+                    >
+                        <FaFileAlt /> PR {selectedPresupuestos && <span className="pill-count">{selectedPresupuestos.size}</span>}
+                        <FaChevronDown className="pill-arrow" />
+                    </button>
+                    <button 
+                        className={`mobile-filter-pill ${selectedClientes || selectedMonedas ? 'active' : ''}`}
+                        onClick={() => {
+                            setFilterSearchTerm('');
+                            setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));
+                            setTempSelectedMonedas(selectedMonedas ? new Set(selectedMonedas) : new Set(uniqueMonedas));
+                            setShowClienteFilter(true);
+                        }}
+                    >
+                        <FaUser /> Cliente {(selectedClientes || selectedMonedas) && <span className="pill-count">{(selectedClientes?.size || 0) + (selectedMonedas?.size || 0)}</span>}
+                        <FaChevronDown className="pill-arrow" />
+                    </button>
+                    <button 
+                        className={`mobile-filter-pill ${estadoSubFilter !== 'all' ? 'active' : ''}`}
+                        onClick={() => setShowEstadoModal(true)}
+                    >
+                        <FaInfoCircle /> Estado
+                        <FaChevronDown className="pill-arrow" />
+                    </button>
+                </div>
+            )}
+
             {isMobile ? (
                 renderMobileCards()
             ) : (
@@ -1134,7 +1199,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                         {getSortIcon('cliente_monto')} Cliente / Monto 
                                         <FaChevronDown style={{ fontSize: '0.7rem', opacity: selectedClientes ? 1 : 0.5, color: selectedClientes ? 'var(--primary-color)' : 'inherit' }} />
                                     </div>
-                                    {showClienteFilter && renderExcelFilter('cliente', 'right')}
+                                    {showClienteFilter && renderExcelFilter('cliente')}
                                 </th>
                             </tr>
                         </thead>
@@ -1366,6 +1431,10 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                     </div>
                 </div>
             )}
+
+            {showPRFilter && renderExcelFilter('pr')}
+            {showClienteFilter && renderExcelFilter('cliente')}
+            {showEstadoModal && renderEstadoModal()}
 
             {selectedItem && (() => {
                 const group = groupedData.find(g => {
