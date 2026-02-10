@@ -27,50 +27,69 @@ import DetailModal from './DetailModal';
 import './ResultsTable.css';
 
 const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
-    // Helpers
-    const getBudgetContext = (item) => {
-        const nroPR = item.NroPR || item.NroSolicitud;
-        const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud;
-        if (!allData || !nroPR) return { totalCargas: 0, noFacturadas: 0, facturadas: 0, pendientesRecibo: 0, itemsSinCarga: 0 };
+    // Memoize budget contexts to avoid O(N^2) complexity on every render
+    const budgetContexts = React.useMemo(() => {
+        if (!allData || !allData.length) return {};
         
-        const allItems = allData.filter(i => {
-            const iPR = i.NroPR || i.NroSolicitud;
-            const iEmp = i.FCRMVH_CODEMP || i.EmpresaSolicitud;
-            return iPR === nroPR && iEmp === empresa;
+        // Group allData by budget first (O(N))
+        const budgets = {};
+        allData.forEach(item => {
+            const nroPR = item.NroPR || item.NroSolicitud;
+            const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud || 'SE-';
+            const key = `${empresa}-${nroPR}`;
+            if (!budgets[key]) budgets[key] = [];
+            budgets[key].push(item);
+        });
+
+        // Calculate context for each budget (O(B * C) where B=budgets, C=avg items per budget)
+        const contexts = {};
+        Object.keys(budgets).forEach(key => {
+            const allItems = budgets[key];
+            const uniqueCargas = [...new Set(allItems.map(i => i.CodigoCarga).filter(Boolean))];
+            const totalCargas = uniqueCargas.length;
+            const itemsSinCarga = allItems.filter(i => !i.CodigoCarga).length;
+            
+            // Optimization: group items by carga once for this budget
+            const cargasMap = {};
+            allItems.forEach(i => {
+                if (i.CodigoCarga) {
+                    if (!cargasMap[i.CodigoCarga]) cargasMap[i.CodigoCarga] = [];
+                    cargasMap[i.CodigoCarga].push(i);
+                }
+            });
+
+            const noFacturadas = uniqueCargas.filter(id => {
+                const items = cargasMap[id];
+                return items.some(i => !i.FacturaAsociadaOP || i.FacturaAsociadaOP.includes('Pendiente') || i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+            }).length;
+
+            const facturadas = uniqueCargas.filter(id => {
+                const items = cargasMap[id];
+                return items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+            }).length;
+
+            const pendientesRecibo = uniqueCargas.filter(id => {
+                const items = cargasMap[id];
+                const hasFactura = items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
+                const hasRecibo = items.some(i => i.ReciboCobranza && !i.ReciboCobranza.includes('Pendiente'));
+                return hasFactura && !hasRecibo;
+            }).length;
+
+            contexts[key] = { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga };
         });
         
-        // Cargas únicas
-        const uniqueCargas = [...new Set(allItems.map(i => i.CodigoCarga).filter(Boolean))];
-        const totalCargas = uniqueCargas.length;
-        
-        // Items sin carga
-        const itemsSinCarga = allItems.filter(i => !i.CodigoCarga).length;
-        
-        // Cargas que tienen al menos un ítem pendiente de factura
-        const noFacturadas = uniqueCargas.filter(id => {
-            const items = allItems.filter(i => i.CodigoCarga === id);
-            return items.some(i => !i.FacturaAsociadaOP || i.FacturaAsociadaOP.includes('Pendiente') || i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
-        }).length;
-
-        // Cargas que tienen al menos un ítem ya facturado
-        const facturadas = uniqueCargas.filter(id => {
-            const items = allItems.filter(i => i.CodigoCarga === id);
-            return items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
-        }).length;
-
-        // Cargas que tienen al menos una factura y están pendientes de recibo
-        const pendientesRecibo = uniqueCargas.filter(id => {
-            const items = allItems.filter(i => i.CodigoCarga === id);
-            const hasFactura = items.some(i => i.FacturaAsociadaOP && !i.FacturaAsociadaOP.includes('Pendiente') && !i.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
-            const hasRecibo = items.some(i => i.ReciboCobranza && !i.ReciboCobranza.includes('Pendiente'));
-            return hasFactura && !hasRecibo;
-        }).length;
-
-        return { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga };
-    };
+        return contexts;
+    }, [allData]);
 
     const renderLeyenda = (item) => {
-        const { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga } = getBudgetContext(item);
+        const nroPR = item.NroPR || item.NroSolicitud;
+        const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud || 'SE-';
+        const key = `${empresa}-${nroPR}`;
+        const context = budgetContexts[key];
+        
+        if (!context) return null;
+        
+        const { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga } = context;
         
         if (activeFilter === 'sinCarga') {
             return `Tiene 0 cargas asociadas al mismo presupuesto y ${itemsSinCarga} está/están pendiente de realizar una Carga.`;

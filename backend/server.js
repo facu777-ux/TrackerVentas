@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 require("dotenv").config();
 
 // Fix para serialización de BigInt (evita crash al enviar JSON con BigInt de SQL)
@@ -13,6 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
+app.use(compression()); // Comprimir todas las respuestas
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

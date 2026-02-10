@@ -4,9 +4,14 @@ import { seguimientoAPI } from '../services/api';
 import './SearchFilters.css';
 
 const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
+  // Calcular fecha de hace 6 meses para el valor por defecto
+  const seisMesesAtras = new Date();
+  seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 6);
+  const fechaDefecto = seisMesesAtras.toISOString().split('T')[0];
+
   const [filters, setFilters] = useState({
     empresa: '',
-    fechaDesde: '2024-01-01',
+    fechaDesde: fechaDefecto,
     fechaHasta: new Date().toISOString().split('T')[0],
     cliente: '',
     nroPR: '',
@@ -106,7 +111,7 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
   const handleReset = () => {
     const resetFilters = {
       empresa: '',
-      fechaDesde: '2024-01-01',
+      fechaDesde: fechaDefecto,
       fechaHasta: new Date().toISOString().split('T')[0],
       cliente: '',
       nroPR: '',
