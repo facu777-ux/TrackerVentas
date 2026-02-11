@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import './DetailModal.css';
 import './EstadoFlujo.css';
 
-const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex, totalItems, budgetTotal, relatedItems, isMobile }) => {
+const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex, totalItems, budgetTotal, relatedItems, isMobile, selectedDocRef }) => {
     const [activeTab, setActiveTab] = useState('general');
 
     // Mapear el modo a la pestaña correspondiente al abrir
@@ -103,11 +103,24 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
         };
     };
 
-    // Calcular total dinámico para el header según el modo
+    // Filtrar items según el documento seleccionado (si aplica)
+    const filteredRelatedItems = React.useMemo(() => {
+        if (!relatedItems) return [];
+        if (!selectedDocRef) return relatedItems;
+
+        if (mode === 'factura') {
+            return relatedItems.filter(ri => ri.FacturaAsociadaOP === selectedDocRef);
+        }
+        if (mode === 'recibo') {
+            return relatedItems.filter(ri => ri.ReciboCobranza === selectedDocRef);
+        }
+        return relatedItems;
+    }, [relatedItems, selectedDocRef, mode]);
+
+    // Calcular total dinámico para el header según el modo y el filtro de documento
     const currentModeTotal = React.useMemo(() => {
-        if (!relatedItems) return budgetTotal;
-        return relatedItems.reduce((acc, ri) => acc + getItemValues(ri).total, 0);
-    }, [relatedItems, mode, budgetTotal]);
+        return filteredRelatedItems.reduce((acc, ri) => acc + getItemValues(ri).total, 0);
+    }, [filteredRelatedItems, mode]);
 
     const renderMetricCards = () => {
         // Métricas según el contexto (Modo)
@@ -147,16 +160,16 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
 
         if (mode === 'factura' || mode === 'recibo') {
             const isRecibo = mode === 'recibo';
-            const { total } = getItemValues(item);
+            // Si hay un documento seleccionado, los valores ya vienen filtrados en currentModeTotal
             return (
                 <div className="metric-cards-container">
                     <div className="metric-card highlight">
                         <span className="metric-label">{isRecibo ? 'RECIBO DE COBRANZA' : 'COMPROBANTE'}</span>
-                        <h2 className="metric-value" style={{ fontSize: '1.1rem' }}>{isRecibo ? item.ReciboCobranza : item.FacturaAsociadaOP}</h2>
+                        <h2 className="metric-value" style={{ fontSize: '1.1rem' }}>{selectedDocRef || (isRecibo ? item.ReciboCobranza : item.FacturaAsociadaOP)}</h2>
                     </div>
                     <div className="metric-card">
-                        <span className="metric-label">IMPORTE ITEM</span>
-                        <h2 className="metric-value">{formatMonto(total)}</h2>
+                        <span className="metric-label">IMPORTE TOTAL DOC.</span>
+                        <h2 className="metric-value">{formatMonto(currentModeTotal)}</h2>
                     </div>
                     <div className="metric-card">
                         <span className="metric-label">CLIENTE</span>
@@ -325,7 +338,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                         </tr>
                     </thead>
                     <tbody>
-                        {relatedItems.map((ri, idx) => {
+                        {filteredRelatedItems.map((ri, idx) => {
                             const values = getItemValues(ri);
                             return (
                                 <tr key={idx} className={ri === item ? 'current-item' : ''}>
@@ -361,8 +374,8 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
     const getContextInfo = () => {
         switch(mode) {
             case 'carga': return { label: 'Carga Logística', title: `Carga Nº ${item.CodigoCarga || 'S/N'}`, crt: item.NroCRT, icon: <FaTruck /> };
-            case 'factura': return { label: 'Facturación', title: item.FacturaAsociadaOP, icon: <FaFileInvoice /> };
-            case 'recibo': return { label: 'Cobranza', title: item.ReciboCobranza, icon: <FaCashRegister /> };
+            case 'factura': return { label: 'Facturación', title: selectedDocRef || item.FacturaAsociadaOP, icon: <FaFileInvoice /> };
+            case 'recibo': return { label: 'Cobranza', title: selectedDocRef || item.ReciboCobranza, icon: <FaCashRegister /> };
             default: return { label: 'Presupuesto', title: `PR Nº ${item.NroPR}`, icon: <FaFileInvoice /> };
         }
     };
@@ -412,7 +425,7 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                         <button className={`ux-tab-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>Administración</button>
 
                         <button className={`ux-tab-btn ${activeTab === 'items' ? 'active' : ''}`} onClick={() => setActiveTab('items')}>
-                            Ítems ({relatedItems?.length || 0})
+                            Ítems ({filteredRelatedItems?.length || 0})
                         </button>
                     </div>
 

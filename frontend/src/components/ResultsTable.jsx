@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import {
     FaFileInvoice,
     FaTruck,
@@ -19,7 +20,8 @@ import {
     FaFileAlt,
     FaUser,
     FaInfoCircle,
-    FaTimes
+    FaTimes,
+    FaCashRegister
 } from 'react-icons/fa';
 import { format, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -158,6 +160,8 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     const [filterSearchTerm, setFilterSearchTerm] = useState('');
     const [tempSelected, setTempSelected] = useState(new Set()); 
     const [tempSelectedMonedas, setTempSelectedMonedas] = useState(new Set()); // Para la selección temporal antes de darle OK
+    const [activePopover, setActivePopover] = useState(null); // { type: 'factura'|'recibo', budgetKey: string, anchorEl: HTMLElement, documents: string[] }
+    const [selectedDocRef, setSelectedDocRef] = useState(null); // Numero de factura o recibo seleccionado desde el popover
 
     // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en pendientes
     React.useEffect(() => {
@@ -190,10 +194,11 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     // Cierre de modales al hacer click afuera
     React.useEffect(() => {
         const handleClickOutside = (e) => {
-            if (!e.target.closest('.relative') && !e.target.closest('.excel-filter-dropdown')) {
+            if (!e.target.closest('.relative') && !e.target.closest('.excel-filter-dropdown') && !e.target.closest('.document-popover')) {
                 setShowPRFilter(false);
                 setShowClienteFilter(false);
                 setShowEstadoModal(false);
+                setActivePopover(null);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -281,15 +286,21 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
             // Guardar item crudo para uso posterior (detalle)
             groups[presupuestoKey].items.push(item);
 
-            // LOGICA MULTI-CLIENTE Y MULTI-FACTURA:
+            // LOGICA MULTI-CLIENTE, MULTI-FACTURA Y MULTI-RECIBO:
             if (!groups[presupuestoKey].clientSet) groups[presupuestoKey].clientSet = new Set();
             if (!groups[presupuestoKey].invoiceSet) groups[presupuestoKey].invoiceSet = new Set();
+            if (!groups[presupuestoKey].receiptSet) groups[presupuestoKey].receiptSet = new Set();
             
             if (item.NomCliente) groups[presupuestoKey].clientSet.add(item.NomCliente);
             if (item.FacturaAsociadaOP && 
                 !item.FacturaAsociadaOP.includes('Pendiente') && 
-                !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) {
+                !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA') &&
+                item.FacturaAsociadaOP !== 'Varios Comprobantes') {
                 groups[presupuestoKey].invoiceSet.add(item.FacturaAsociadaOP);
+            }
+            if (item.ReciboCobranza && !item.ReciboCobranza.includes('Pendiente') && 
+                item.ReciboCobranza !== 'Varios Recibos') {
+                groups[presupuestoKey].receiptSet.add(item.ReciboCobranza);
             }
 
             // Actualizar fecha máxima
@@ -308,7 +319,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 if (!groups[presupuestoKey].cargas[carga]) {
                     groups[presupuestoKey].cargas[carga] = {
                         carga,
-                        info: item, // Info de la carga
+                        info: { ...item }, // Copia para evitar mutar el item original
                         facturas: [],
                         maxFecha: item.FecAltCarga || item.FchMovimiento // Para ordenar cargas
                     };
@@ -327,7 +338,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 if (!groups[presupuestoKey].cargas['sin-carga']) {
                     groups[presupuestoKey].cargas['sin-carga'] = {
                         carga: null,
-                        info: item,
+                        info: { ...item }, // Copia
                         facturas: [],
                         maxFecha: item.FchMovimiento || item.FchAltaRegistro
                     };
@@ -395,6 +406,18 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 }
             }
 
+            // APLANA RECIBOS
+            if (presupuesto.receiptSet && presupuesto.receiptSet.size > 0) {
+                const uniqueReceipts = Array.from(presupuesto.receiptSet);
+                if (uniqueReceipts.length > 1) {
+                    presupuesto.info.ReciboCobranza = 'Varios Recibos';
+                    presupuesto.info.isMultiReceipt = true;
+                    presupuesto.info.individualReceipts = uniqueReceipts;
+                } else {
+                    presupuesto.info.ReciboCobranza = uniqueReceipts[0];
+                }
+            }
+
             // Convertir cargas a array y ordenar por fecha descendente
             const cargasArray = Object.values(presupuesto.cargas).sort((a, b) => {
                 const fechaA = new Date(a.maxFecha);
@@ -402,8 +425,32 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 return fechaB - fechaA; // Descendente
             });
 
-            // Ordenar facturas dentro de cada carga por fecha descendente
+            // Ordenar facturas dentro de cada carga y detectar multi-doc
             cargasArray.forEach(carga => {
+                const invoiceSet = new Set();
+                const receiptSet = new Set();
+
+                carga.facturas.forEach(f => {
+                    if (f.FacturaAsociadaOP && 
+                        !f.FacturaAsociadaOP.includes('CARGA NO FACTURADA') && 
+                        !f.FacturaAsociadaOP.includes('Pendiente') &&
+                        f.FacturaAsociadaOP !== 'Varios Comprobantes') {
+                        invoiceSet.add(f.FacturaAsociadaOP);
+                    }
+                    if (f.ReciboCobranza && !f.ReciboCobranza.includes('Pendiente') &&
+                        f.ReciboCobranza !== 'Varios Recibos') {
+                        receiptSet.add(f.ReciboCobranza);
+                    }
+                });
+
+                // Actualizar info de la carga con banderas multi-doc (sobre la copia de info)
+                if (invoiceSet.size > 1) {
+                    carga.info = { ...carga.info, isMultiInvoice: true, individualInvoices: Array.from(invoiceSet), FacturaAsociadaOP: 'Varios Comprobantes' };
+                }
+                if (receiptSet.size > 1) {
+                    carga.info = { ...carga.info, isMultiReceipt: true, individualReceipts: Array.from(receiptSet), ReciboCobranza: 'Varios Recibos' };
+                }
+
                 carga.facturas.sort((a, b) => {
                     const fechaA = new Date(a.FchMovimiento || a.FchAltaRegistro);
                     const fechaB = new Date(b.FchMovimiento || b.FchAltaRegistro);
@@ -835,6 +882,47 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         return null;
     };
 
+    const renderDocumentPopover = () => {
+        if (!activePopover) return null;
+        const { type, documents, anchorEl, item } = activePopover;
+        const rect = anchorEl.getBoundingClientRect();
+        
+        // Usar fixed position basada en el rect de la ventana
+        const style = {
+            position: 'fixed',
+            top: `${rect.bottom + 8}px`,
+            left: `${rect.left - 100}px`, // Intentar centrar un poco
+            zIndex: 9999
+        };
+
+        const popover = (
+            <div className="document-popover" style={style} onClick={(e) => e.stopPropagation()}>
+                <div className="popover-header">
+                    Seleccionar {type === 'factura' ? 'Comprobante' : 'Recibo'}
+                </div>
+                {documents.map((doc, idx) => (
+                    <div 
+                        key={idx} 
+                        className="popover-item"
+                        onClick={() => {
+                            setSelectedItem(item);
+                            setModalMode(type);
+                            setSelectedDocRef(doc); 
+                            setActivePopover(null);
+                        }}
+                    >
+                        {type === 'factura' ? <FaFileInvoice /> : <FaCashRegister />}
+                        <div className="popover-item-text">
+                            <span>{doc}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+
+        return ReactDOM.createPortal(popover, document.body);
+    };
+
     const renderCompactTimeline = (item) => {
         const factura = item.FacturaAsociadaOP;
         const isFacturado = factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente');
@@ -852,10 +940,26 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         };
 
         const steps = [
-            { id: 1, label: 'Presupuesto', sublabel: `PR Nº ${item.NroPR}`, date: formatFechaHora(item.FchMovimiento), completed: hasPR, mode: 'presupuesto' },
-            { id: 2, label: 'Carga', sublabel: `Carga Nº ${item.CodigoCarga}`, date: formatFechaHora(item.FecAltCarga), completed: hasCarga, mode: 'carga' },
-            { id: 3, label: 'Factura', sublabel: factura || 'Pendiente Facturación', date: '', completed: isFacturado, mode: 'factura' },
-            { id: 4, label: 'Recibo de Cobranza', sublabel: item.ReciboCobranza || 'Sin recibo de cobranza', date: '', completed: hasRecibo, mode: 'recibo' }
+            { 
+                id: 1, label: 'Presupuesto', sublabel: `PR Nº ${item.NroPR}`, 
+                date: formatFechaHora(item.FchMovimiento), completed: hasPR, mode: 'presupuesto' 
+            },
+            { 
+                id: 2, label: 'Carga', sublabel: `Carga Nº ${item.CodigoCarga}`, 
+                date: formatFechaHora(item.FecAltCarga), completed: hasCarga, mode: 'carga' 
+            },
+            { 
+                id: 3, label: 'Factura', 
+                sublabel: item.isMultiInvoice ? `Varios (${item.individualInvoices.length})` : (factura || 'Pendiente Facturación'), 
+                date: '', completed: isFacturado, mode: 'factura', 
+                isMulti: item.isMultiInvoice, docs: item.individualInvoices 
+            },
+            { 
+                id: 4, label: 'Recibo', 
+                sublabel: item.isMultiReceipt ? `Varios (${item.individualReceipts.length})` : (item.ReciboCobranza || 'Sin recibo'), 
+                date: '', completed: hasRecibo, mode: 'recibo', 
+                isMulti: item.isMultiReceipt, docs: item.individualReceipts 
+            }
         ];
 
         const urgency = getUrgencyInfo(item.FecAltCarga, (hasCarga && !isFacturado) ? 'No Facturado' : '');
@@ -866,12 +970,22 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                     <div 
                         key={step.id} 
                         className={`table-timeline-item ${step.completed ? 'completed' : ''}`}
-                        onClick={() => {
-                            setSelectedItem(item);
-                            setModalMode(step.mode);
+                        onClick={(e) => {
+                            if (step.isMulti && step.completed) {
+                                setActivePopover({
+                                    type: step.mode,
+                                    item: item,
+                                    documents: step.docs,
+                                    anchorEl: e.currentTarget.querySelector('.table-timeline-marker')
+                                });
+                            } else {
+                                setSelectedItem(item);
+                                setModalMode(step.mode);
+                                setSelectedDocRef(null); // Reset
+                            }
                         }}
                     >
-                        <div className="table-timeline-marker">{step.id}</div>
+                        <div className={`table-timeline-marker ${step.isMulti ? 'stacked' : ''}`}>{step.id}</div>
                         <div className="table-timeline-content">
                             <h4 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                 {step.label}
@@ -967,19 +1081,39 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                                         {[
                                                             { label: 'PR', sub: `Nº ${group.presupuesto}`, completed: true, mode: 'presupuesto' },
                                                             { label: 'Carga', sub: `Nº ${cargaGroup.carga}`, completed: true, mode: 'carga' },
-                                                            { label: 'Factura', sub: cargaGroup.info.FacturaAsociadaOP || 'Pendiente', completed: isFacturado, mode: 'factura' },
-                                                            { label: 'Recibo', sub: cargaGroup.info.ReciboCobranza || 'Pendiente', completed: cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente'), mode: 'recibo' }
+                                                            { 
+                                                                label: 'Factura', 
+                                                                sub: cargaGroup.info.isMultiInvoice ? `Varios (${cargaGroup.info.individualInvoices.length})` : (cargaGroup.info.FacturaAsociadaOP || 'Pendiente'), 
+                                                                completed: isFacturado, mode: 'factura',
+                                                                isMulti: cargaGroup.info.isMultiInvoice, docs: cargaGroup.info.individualInvoices
+                                                            },
+                                                            { 
+                                                                label: 'Recibo', 
+                                                                sub: cargaGroup.info.isMultiReceipt ? `Varios (${cargaGroup.info.individualReceipts.length})` : (cargaGroup.info.ReciboCobranza || 'Pendiente'), 
+                                                                completed: cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente'), mode: 'recibo',
+                                                                isMulti: cargaGroup.info.isMultiReceipt, docs: cargaGroup.info.individualReceipts
+                                                            }
                                                         ].map((step, sIdx) => (
                                                             <div 
                                                                 key={sIdx} 
                                                                 className={`timeline-step ${step.completed ? 'completed' : ''}`}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setSelectedItem(cargaGroup.info);
-                                                                    setModalMode(step.mode);
+                                                                    if (step.isMulti && step.completed) {
+                                                                        setActivePopover({
+                                                                            type: step.mode,
+                                                                            item: cargaGroup.info,
+                                                                            documents: step.docs,
+                                                                            anchorEl: e.currentTarget.querySelector('.step-marker')
+                                                                        });
+                                                                    } else {
+                                                                        setSelectedItem(cargaGroup.info);
+                                                                        setModalMode(step.mode);
+                                                                        setSelectedDocRef(null);
+                                                                    }
                                                                 }}
                                                             >
-                                                                <div className="step-marker">{sIdx + 1}</div>
+                                                                <div className={`step-marker ${step.isMulti ? 'stacked' : ''}`}>{sIdx + 1}</div>
                                                                 <div className="step-info">
                                                                     <span className="step-label">{step.label}</span>
                                                                     <span className="step-sub">{step.sub}</span>
@@ -1501,9 +1635,13 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                         budgetTotal={group?.budgetTotal || 0}
                         relatedItems={allItems}
                         isMobile={isMobile}
+                        selectedDocRef={selectedDocRef}
                     />
                 );
             })()}
+
+            {/* Popover de Selección de Documentos */}
+            {activePopover && renderDocumentPopover()}
         </div>
     );
 };
