@@ -139,7 +139,10 @@ router.post("/", async (req, res) => {
                     WHERE gt.USR_GTMVIH_CODFOR = pr.FCRMVH_CODFOR
                     AND gt.USR_GTMVIH_NROFOR = pr.FCRMVH_NROFOR
                     AND gt.USR_GTMVIH_CODEMP = pr.FCRMVH_CODEMP
-                );
+                )
+                -- Excluir cargas anuladas
+                AND ISNULL(gt.USR_GTMVIH_ANULAR, 'N') <> 'S'
+                AND (gt.USR_GTMVIH_MOTBAJ IS NULL OR gt.USR_GTMVIH_MOTBAJ = '');
 
             CREATE CLUSTERED INDEX IX_Cargas ON #Cargas (EmpreCarga, CodPR, NroPR);
             CREATE NONCLUSTERED INDEX IX_Cargas_Cod ON #Cargas (CodCar);
