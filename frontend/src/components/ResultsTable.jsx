@@ -21,14 +21,30 @@ import {
     FaUser,
     FaInfoCircle,
     FaTimes,
-    FaCashRegister
+    FaCashRegister,
+    FaExpandArrowsAlt,
+    FaCompressArrowsAlt
 } from 'react-icons/fa';
 import { format, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
 import './ResultsTable.css';
 
-const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
+const ResultsTable = ({ 
+    data, 
+    allData, 
+    loading, 
+    activeFilter, 
+    isMobile,
+    searchTerm,
+    setSearchTerm,
+    searchCarga,
+    setSearchCarga,
+    displayCurrency = 'ARS',
+    setDisplayCurrency,
+    exchangeRate = 1000,
+    chileExchangeRate = 900
+}) => {
     // Memoize budget contexts to avoid O(N^2) complexity on every render
     const budgetContexts = React.useMemo(() => {
         if (!allData || !allData.length) return {};
@@ -93,7 +109,7 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         
         const { totalCargas, noFacturadas, facturadas, pendientesRecibo, itemsSinCarga } = context;
         
-        if (activeFilter === 'sinCarga') {
+        if (activeFilter === 'presupuestos') {
             return `Tiene 0 cargas asociadas al mismo presupuesto y ${itemsSinCarga} está/están pendiente de realizar una Carga.`;
         }
         
@@ -113,13 +129,13 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         const recibo = item.ReciboCobranza;
 
         if (recibo && !recibo.includes('Pendiente')) {
-            return { class: 'badge-pagado', text: 'PAGADO' };
+            return { class: 'badge-pagado', text: 'PAGADO', dot: 'bg-emerald-500' };
         } else if (factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente')) {
-            return { class: 'badge-facturado', text: 'FACTURADO' };
+            return { class: 'badge-facturado', text: 'FACTURADO', dot: 'bg-blue-500' };
         } else if (item.CodigoCarga) {
-            return { class: 'badge-asignado', text: 'No Facturado' };
+            return { class: 'badge-asignado', text: 'NO FACTURADO', dot: 'bg-amber-500' };
         } else {
-            return { class: 'badge-presupuesto', text: 'PRESUPUESTO' };
+            return { class: 'badge-presupuesto', text: 'PRESUPUESTO', dot: 'bg-slate-400' };
         }
     };
 
@@ -141,8 +157,6 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         return `${formatted} ${moneda || 'ARS'}`;
     };
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchCarga, setSearchCarga] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -160,6 +174,12 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     const [filterSearchTerm, setFilterSearchTerm] = useState('');
     const [tempSelected, setTempSelected] = useState(new Set()); 
     const [tempSelectedMonedas, setTempSelectedMonedas] = useState(new Set()); // Para la selección temporal antes de darle OK
+    
+    // Filtros de fecha locales para la columna Presupuesto/Fecha
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
+    const [tempStartDate, setTempStartDate] = useState('');
+    const [tempEndDate, setTempEndDate] = useState('');
     const [activePopover, setActivePopover] = useState(null); // { type: 'factura'|'recibo', budgetKey: string, anchorEl: HTMLElement, documents: string[] }
     const [selectedDocRef, setSelectedDocRef] = useState(null); // Numero de factura o recibo seleccionado desde el popover
 
@@ -177,17 +197,18 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     React.useEffect(() => {
         if (activeFilter === 'enCarga' && !['all', 'noFacturado'].includes(estadoSubFilter)) {
             setEstadoSubFilter('all');
-        } else if (activeFilter === 'sinCarga' && estadoSubFilter !== 'all') {
+        } else if (activeFilter === 'presupuestos' && estadoSubFilter !== 'all') {
             setEstadoSubFilter('all');
         } else if (activeFilter === 'facturados' && !['all', 'facturado', 'pagado'].includes(estadoSubFilter)) {
             setEstadoSubFilter('all');
         }
+        // Nota: En 'all' permitimos cualquier estadoSubFilter y no reseteamos
     }, [activeFilter, estadoSubFilter]);
 
     // EFECTO: Resetear paginación al cambiar filtros
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas]);
+    }, [searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
 
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
 
@@ -229,22 +250,41 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
             const matchesPR = !selectedPresupuestos || selectedPresupuestos.has(item.NroPR || item.NroSolicitud);
             const matchesCliente = !selectedClientes || selectedClientes.has(item.NomCliente);
             const matchesMoneda = !selectedMonedas || selectedMonedas.has(item.Moneda);
+
+            // Filtro de Fecha Local (Columna PR)
+            const getDateStr = (d) => {
+                if (!d) return null;
+                const dt = new Date(d);
+                if (isNaN(dt.getTime())) return null;
+                // Usar componentes locales para evitar el desplazamiento de zona horaria (UTC)
+                const y = dt.getFullYear();
+                const m = String(dt.getMonth() + 1).padStart(2, '0');
+                const day = String(dt.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
+            const itemDateStr = getDateStr(item.FchMovimiento || item.FchAltaRegistro);
+            const startStr = filterStartDate || null;
+            const endStr = filterEndDate || null;
+
+            const matchesDateLocal = (!startStr || (itemDateStr && itemDateStr >= startStr)) && 
+                                   (!endStr || (itemDateStr && itemDateStr <= endStr));
             
-            return matchesGlobal && matchesCarga && matchesPR && matchesCliente && matchesMoneda;
+            return matchesGlobal && matchesCarga && matchesPR && matchesCliente && matchesMoneda && matchesDateLocal;
         });
 
-        // Aplicar sub-filtro de estado si corresponde (independiente de activeFilter para mayor robustez)
+        // Aplicar sub-filtro de estado si corresponde
         if (estadoSubFilter !== 'all') {
             base = base.filter(item => {
                 const info = getEstadoInfo(item);
                 if (estadoSubFilter === 'facturado') return info.text === 'FACTURADO';
                 if (estadoSubFilter === 'pagado') return info.text === 'PAGADO';
-                if (estadoSubFilter === 'noFacturado') return info.text === 'No Facturado';
+                if (estadoSubFilter === 'noFacturado') return info.text === 'NO FACTURADO';
                 return true;
             });
         }
         return base;
-    }, [data, searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas]);
+    }, [data, searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
 
     // Obtener valores únicos para los filtros de Excel
     const uniquePresupuestos = React.useMemo(() => {
@@ -470,6 +510,38 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentGroups = groupedData.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(groupedData.length / itemsPerPage);
+    
+    // Calcular subtotales por moneda de TODOS los resultados filtrados
+    const subtotals = React.useMemo(() => {
+        const result = { ARS: 0, USD: 0, totalConsolidated: 0 };
+        
+        // Función local de normalización para el total consolidado
+        const normalize = (amount, currencyRaw) => {
+            const raw = String(currencyRaw || 'ARS').toUpperCase().trim();
+            let isUSD = (raw === 'USD' || raw === '2' || raw === 'U$S' || raw === 'DOLARES' || raw === 'DÓLAR');
+            
+            if (displayCurrency === 'ARS') {
+                if (!isUSD) return amount;
+                return amount * (parseFloat(exchangeRate) || 1000);
+            } else {
+                // Entendemos que displayCurrency es USD_BNA o USD_SII
+                if (isUSD) return amount;
+                const rate = displayCurrency === 'USD_SII' ? (parseFloat(chileExchangeRate) || 900) : (parseFloat(exchangeRate) || 1000);
+                return amount / rate;
+            }
+        };
+
+        // Usamos groupedData que contiene todos los presupuestos antes de paginar
+        groupedData.forEach(group => {
+            const moneda = group.info.Moneda || 'ARS';
+            const total = group.budgetTotal || 0;
+            if (moneda === 'ARS' || moneda === '1') result.ARS += total;
+            else if (moneda === 'USD' || moneda === '2') result.USD += total;
+            
+            result.totalConsolidated += normalize(total, moneda);
+        });
+        return result;
+    }, [groupedData, displayCurrency, exchangeRate, chileExchangeRate]);
 
     // Lista de etapas navegables restringida al contexto actual
     const navigableItems = React.useMemo(() => {
@@ -546,6 +618,23 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         setExpandedPresupuestos(newExpanded);
     };
 
+    // Lógica para Expandir/Contraer Todo
+    const allExpanded = groupedData.length > 0 && groupedData.every(g => expandedPresupuestos.has(g.key));
+    
+    const toggleAllVisible = () => {
+        if (allExpanded) {
+            // Si todo está abierto, cerramos todo lo que pertenezca a la vista actual
+            const next = new Set(expandedPresupuestos);
+            groupedData.forEach(g => next.delete(g.key));
+            setExpandedPresupuestos(next);
+        } else {
+            // Si hay algo cerrado (o todo), abrimos todo lo de la vista actual
+            const next = new Set(expandedPresupuestos);
+            groupedData.forEach(g => next.add(g.key));
+            setExpandedPresupuestos(next);
+        }
+    };
+
 
 
     const handleSort = (key) => {
@@ -564,6 +653,8 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
         setSelectedPresupuestos(null);
         setSelectedClientes(null);
         setSelectedMonedas(null);
+        setFilterStartDate('');
+        setFilterEndDate('');
         setShowEstadoModal(false);
         setShowPRFilter(false);
         setShowClienteFilter(false);
@@ -675,6 +766,11 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 isPR ? setSelectedPresupuestos(selectionToApply) : setSelectedClientes(selectionToApply);
             }
             
+            if (isPR) {
+                setFilterStartDate(tempStartDate);
+                setFilterEndDate(tempEndDate);
+            }
+
             // Manejo de Monedas (solo para cliente)
             if (!isPR) {
                 if (tempSelectedMonedas.size === uniqueMonedas.length) {
@@ -726,6 +822,10 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                 <div className="filter-clear-item" onClick={() => {
                     if (isPR) {
                         setSelectedPresupuestos(null);
+                        setFilterStartDate('');
+                        setFilterEndDate('');
+                        setTempStartDate('');
+                        setTempEndDate('');
                     } else {
                         setSelectedClientes(null);
                         setSelectedMonedas(null);
@@ -754,6 +854,33 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                         </div>
                         <div className="excel-filter-divider" />
                     </>
+                )}
+
+                {isPR && (
+                    <div className="excel-filter-date-section">
+                        <div className="excel-filter-section-title">Filtrar por Fecha:</div>
+                        <div className="date-picker-grid">
+                            <div className="date-input-group">
+                                <label>Desde:</label>
+                                <input 
+                                    type="date" 
+                                    value={tempStartDate} 
+                                    onChange={(e) => setTempStartDate(e.target.value)}
+                                    className="filter-date-input"
+                                />
+                            </div>
+                            <div className="date-input-group">
+                                <label>Hasta:</label>
+                                <input 
+                                    type="date" 
+                                    value={tempEndDate} 
+                                    onChange={(e) => setTempEndDate(e.target.value)}
+                                    className="filter-date-input"
+                                />
+                            </div>
+                        </div>
+                        <div className="excel-filter-divider" />
+                    </div>
                 )}
 
                 <div className={`excel-filter-search ${isMobile ? 'mobile-search-styled' : ''}`}>
@@ -876,9 +1003,12 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
 
     // Helper para urgencia
     const getUrgencyInfo = (dateString, status) => {
-        if (!dateString || status !== 'No Facturado') return null;
-        const days = differenceInDays(new Date(), new Date(dateString));
-        if (days > 7) return { urgent: true, days };
+        if (!dateString) return null;
+        // Solo mostramos para No Facturado y Facturado (pendiente de cobro)
+        if (status !== 'No Facturado' && status !== 'Facturado') return null;
+        const days = Math.abs(differenceInDays(new Date(), new Date(dateString)));
+        // A partir de 3 días mostramos el indicador de demora
+        if (days >= 3) return { urgent: true, days };
         return null;
     };
 
@@ -962,7 +1092,8 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
             }
         ];
 
-        const urgency = getUrgencyInfo(item.FecAltCarga, (hasCarga && !isFacturado) ? 'No Facturado' : '');
+        const urgencyFactura = getUrgencyInfo(item.FecAltCarga, (hasCarga && !isFacturado) ? 'No Facturado' : '');
+        const urgencyRecibo = getUrgencyInfo(item.FecFactura, (isFacturado && !hasRecibo) ? 'Facturado' : '');
 
         return (
             <div className="table-process-timeline" onClick={(e) => e.stopPropagation()}>
@@ -989,9 +1120,14 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                         <div className="table-timeline-content">
                             <h4 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                 {step.label}
-                                {step.id === 3 && !step.completed && urgency && (
-                                    <span title={`Pendiente hace ${urgency.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
-                                        <FaClock /> <span style={{ marginLeft: '1px', fontSize: '0.75rem' }}>{urgency.days}d</span>
+                                {step.id === 3 && !step.completed && urgencyFactura && (
+                                    <span title={`Pendiente hace ${urgencyFactura.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                                        <FaClock /> <span style={{ marginLeft: '1px', fontSize: '0.75rem' }}>{urgencyFactura.days}d</span>
+                                    </span>
+                                )}
+                                {step.id === 4 && !step.completed && urgencyRecibo && (
+                                    <span title={`Pendiente de cobro hace ${urgencyRecibo.days} días`} style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                                        <FaClock /> <span style={{ marginLeft: '1px', fontSize: '0.75rem' }}>{urgencyRecibo.days}d</span>
                                     </span>
                                 )}
                             </h4>
@@ -1055,8 +1191,11 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                         const isFacturado = cargaGroup.info.FacturaAsociadaOP && 
                                             !cargaGroup.info.FacturaAsociadaOP.includes('CARGA NO FACTURADA') && 
                                             !cargaGroup.info.FacturaAsociadaOP.includes('Pendiente');
-                                        const urgency = getUrgencyInfo(cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento, 
-                                            (cargaGroup.carga && !isFacturado) ? 'No Facturado' : '');
+                                        const hasRecibo = cargaGroup.info.ReciboCobranza && !cargaGroup.info.ReciboCobranza.includes('Pendiente');
+                                        
+                                        const urgencyStatus = (cargaGroup.carga && !isFacturado) ? 'No Facturado' : (isFacturado && !hasRecibo ? 'Facturado' : '');
+                                        const urgencyDate = urgencyStatus === 'No Facturado' ? (cargaGroup.info.FecAltCarga || cargaGroup.info.FchMovimiento) : (urgencyStatus === 'Facturado' ? cargaGroup.info.FecFactura : null);
+                                        const urgency = getUrgencyInfo(urgencyDate, urgencyStatus);
 
                                         return (
                                             <div key={idx} className="mobile-carga-item" onClick={(e) => handleRowClick(cargaGroup.info, e)}>
@@ -1206,8 +1345,22 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                             style={{ paddingLeft: '2.5rem' }}
                         />
                     </div>
+                    
+                    {/* Botón Expandir/Contraer Todo */}
+                    <button 
+                        onClick={toggleAllVisible} 
+                        className={`btn-toggle-all ${allExpanded ? 'active' : ''}`}
+                        title={allExpanded ? 'Contraer todos los registros' : 'Expandir todos los registros'}
+                    >
+                        {allExpanded ? (
+                            <><FaCompressArrowsAlt /> Contraer todo</>
+                        ) : (
+                            <><FaExpandArrowsAlt /> Expandir todo</>
+                        )}
+                    </button>
+
                     {/* Botón Limpiar Filtros */}
-                    {(sortConfig.key || estadoSubFilter !== 'all') && (
+                    {(sortConfig.key || estadoSubFilter !== 'all' || selectedPresupuestos || selectedClientes || selectedMonedas || filterStartDate || filterEndDate) && (
                         <button onClick={clearLocalFilters} className="btn-clear-filters" title="Limpiar orden y sub-filtros">
                             <FaTimesCircle /> Limpiar Filtros
                         </button>
@@ -1282,6 +1435,8 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                             e.stopPropagation();
                                             setFilterSearchTerm('');
                                             setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
+                                            setTempStartDate(filterStartDate);
+                                            setTempEndDate(filterEndDate);
                                             setShowPRFilter(!showPRFilter);
                                             setShowClienteFilter(false);
                                             setShowEstadoModal(false);
@@ -1302,18 +1457,18 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                             alignItems: 'center', 
                                             justifyContent: 'center', 
                                             gap: '0.5rem',
-                                            cursor: activeFilter === 'sinCarga' ? 'default' : 'pointer' 
+                                            cursor: activeFilter === 'presupuestos' ? 'default' : 'pointer' 
                                         }}
                                         onClick={() => {
-                                            if (activeFilter !== 'sinCarga') {
+                                            if (activeFilter !== 'presupuestos') {
                                                 setShowEstadoModal(!showEstadoModal);
                                             }
                                         }}
                                     >
                                         Estado <FaChevronDown style={{ 
                                             fontSize: '0.8rem', 
-                                            opacity: activeFilter === 'sinCarga' ? 0.2 : 1,
-                                            display: activeFilter === 'sinCarga' ? 'none' : 'block'
+                                            opacity: activeFilter === 'presupuestos' ? 0.2 : 1,
+                                            display: activeFilter === 'presupuestos' ? 'none' : 'block'
                                         }} />
                                     </div>
 
@@ -1415,12 +1570,28 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                                 </div>
                                             </td>
 
-                                            {/* Columna 2: Estado y Botón Flotante */}
+                                            {/* Columna 2: Estado y Indicador de Progreso */}
                                             <td className="py-5 relative" style={{ textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                                     {(() => {
                                                         const status = getEstadoInfo(group.info);
-                                                        return <span className={`badge ${status.class}`} style={{ margin: '0 auto' }}>{status.text}</span>;
+                                                        const progressMap = { 'PAGADO': 100, 'FACTURADO': 75, 'CARGA ASIGNADA': 50, 'PRESUPUESTO': 25 };
+                                                        const progress = progressMap[status.text.toUpperCase()] || 0;
+                                                        
+                                                        return (
+                                                            <>
+                                                                <span className={`badge ${status.class}`} style={{ margin: '0 auto' }}>
+                                                                    <span className={`badge-dot ${status.dot}`}></span>
+                                                                    {status.text}
+                                                                </span>
+                                                                <div className="mini-progress-track">
+                                                                    <div 
+                                                                        className={`mini-progress-fill ${status.dot}`} 
+                                                                        style={{ width: `${progress}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </>
+                                                        );
                                                     })()}
                                                 </div>
 
@@ -1497,6 +1668,69 @@ const ResultsTable = ({ data, allData, loading, activeFilter, isMobile }) => {
                                 );
                             })}
                         </tbody>
+                        {(subtotals.ARS > 0 || subtotals.USD > 0) && (
+                            <tfoot className="subtotal-footer">
+                                <tr className="subtotal-row">
+                                    <td colSpan="2" style={{ textAlign: 'right', paddingRight: '2rem' }}>
+                                        <div className="subtotal-label-wrapper">
+                                            <span className="subtotal-label">SUBTOTAL POR MONEDA:</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', paddingRight: '2.5rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                            {subtotals.ARS > 0 && (
+                                                <div className="subtotal-monto text-white">
+                                                    {formatMonto(subtotals.ARS, 'ARS')}
+                                                </div>
+                                            )}
+                                            {subtotals.USD > 0 && (
+                                                <div className="subtotal-monto text-white">
+                                                    {formatMonto(subtotals.USD, 'USD')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr className="total-consolidado-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <td colSpan="2" style={{ textAlign: 'right', paddingRight: '2rem', paddingTop: '1.5rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                            <span className="total-label" style={{ fontWeight: '800', color: 'var(--primary-light)', fontSize: '0.9rem' }}>
+                                                TOTAL CONSOLIDADO:
+                                            </span>
+                                            {/* Selector de Moneda integrado similar a Analítica */}
+                                            <div className="currency-selector-mini glass">
+                                                <button 
+                                                    className={`currency-btn-mini ${displayCurrency === 'ARS' ? 'active' : ''}`}
+                                                    onClick={() => setDisplayCurrency('ARS')}
+                                                >
+                                                    ARS
+                                                </button>
+                                                <button 
+                                                    className={`currency-btn-mini ${displayCurrency === 'USD_BNA' ? 'active' : ''}`}
+                                                    onClick={() => setDisplayCurrency('USD_BNA')}
+                                                >
+                                                    USD BNA
+                                                </button>
+                                                <button 
+                                                    className={`currency-btn-mini ${displayCurrency === 'USD_SII' ? 'active' : ''}`}
+                                                    onClick={() => setDisplayCurrency('USD_SII')}
+                                                >
+                                                    USD SII
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', paddingRight: '2.5rem', paddingTop: '1.5rem', verticalAlign: 'bottom' }}>
+                                        <div className="total-monto font-black">
+                                            {displayCurrency === 'ARS' 
+                                                ? formatMonto(subtotals.totalConsolidated, 'ARS') 
+                                                : formatMonto(subtotals.totalConsolidated, displayCurrency === 'USD_BNA' ? 'USD (BNA)' : 'USD (SII)')
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
             )}

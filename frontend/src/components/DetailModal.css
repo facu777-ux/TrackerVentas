@@ -4,25 +4,28 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(var(--overlay-rgb), 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  backdrop-filter: blur(6px);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
 }
 
 .ux-modal-container {
-  background: var(--bg-surface);
+  background: var(--bg-card);
   width: 95%;
   max-width: 1000px;
   height: 90vh;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  animation: modalAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--glass-border);
+  animation: modalAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 @keyframes modalAppear {
@@ -39,7 +42,7 @@
 /* NIVEL 1: Header */
 .ux-modal-header {
   padding: 1.5rem 2rem;
-  background: linear-gradient(to right, var(--bg-accents-1), var(--bg-surface));
+  background: linear-gradient(to right, var(--bg-accents-2), var(--bg-card));
   border-bottom: 1px solid var(--border-primary);
   display: flex;
   justify-content: space-between;
@@ -170,18 +173,26 @@
 }
 
 .metric-card {
-  background: var(--bg-accents-1);
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-accents-1) 100%);
   padding: 1.25rem;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
 .metric-card.highlight {
-  background: rgba(50, 145, 255, 0.05);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(var(--primary-rgb), 0.05) 100%);
   border-color: var(--primary-color);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--primary-color);
 }
 
 .metric-label {

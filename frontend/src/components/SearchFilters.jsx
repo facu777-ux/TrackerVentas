@@ -3,7 +3,7 @@ import { FaSearch, FaCalendarAlt, FaBuilding, FaUser, FaFileAlt, FaTimes, FaChev
 import { seguimientoAPI } from '../services/api';
 import './SearchFilters.css';
 
-const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
+const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar }) => {
   // Calcular fecha de hace 6 meses para el valor por defecto
   const seisMesesAtras = new Date();
   seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 6);
@@ -122,19 +122,19 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
   };
 
   return (
-    <div className="search-filters-container fade-in">
+    <div className="search-filters-container">
       {!hideTitle && (
         <div className="filters-header">
-          <h2 className="filters-title">
+          <h1 className="filters-title">
             <FaSearch className="icon" />
-            Filtros de Búsqueda
-          </h2>
+            Explorar Seguimiento
+          </h1>
           <button
             type="button"
             className="toggle-advanced-btn"
             onClick={() => setShowAdvanced(!showAdvanced)}
           >
-            {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
+            {showAdvanced ? 'Filtros Simples' : 'Filtros Avanzados'}
             {showAdvanced ? <FaChevronUp style={{ marginLeft: '8px' }} /> : <FaChevronDown style={{ marginLeft: '8px' }} />}
           </button>
         </div>
@@ -155,7 +155,7 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
 
       <form onSubmit={handleSubmit} className="filters-form">
         {/* Filtros Principales */}
-        <div className="filters-row">
+        <div className={`filters-row ${isInSidebar ? 'sidebar-filters-row' : ''}`}>
           <div className="filter-group">
             <label htmlFor="fechaDesde">
               <FaCalendarAlt className="label-icon" />
@@ -212,7 +212,7 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
 
         {/* Filtros Avanzados */}
         {showAdvanced && (
-          <div className="filters-row advanced-filters slide-in">
+          <div className={`filters-row advanced-filters slide-in ${isInSidebar ? 'sidebar-filters-row' : ''}`}>
             <div className="filter-group" ref={wrapperRef} style={{ position: 'relative' }}>
               <label htmlFor="cliente">
                 <FaUser className="label-icon" />
@@ -288,7 +288,7 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle }) => {
         )}
 
         {/* Botones de Acción */}
-        <div className="filters-actions">
+        <div className={`filters-actions ${isInSidebar ? 'sidebar-filters-actions' : ''}`}>
           <button
             type="button"
             onClick={handleReset}

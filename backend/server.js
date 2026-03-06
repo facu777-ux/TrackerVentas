@@ -9,9 +9,10 @@ BigInt.prototype.toJSON = function () {
 };
 
 const seguimientoRoutes = require("./routes/seguimiento");
+const dashboardRoutes = require("./routes/dashboard");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3005;
 
 // Middlewares
 app.use(compression()); // Comprimir todas las respuestas
@@ -27,6 +28,7 @@ app.use((req, res, next) => {
 
 // Rutas
 app.use("/api/seguimiento", seguimientoRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Ruta de salud
 app.get("/api/health", (req, res) => {

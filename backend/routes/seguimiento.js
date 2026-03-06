@@ -113,6 +113,7 @@ router.post("/", async (req, res) => {
                 vtc.VTMCLH_NOMBRE AS NomClientFacturar,
                 i.USR_GTMVII_CODFAC AS CodFac,
                 i.USR_GTMVII_NROFAC AS NroFac,
+                f.FCRMVH_FCHMOV AS FecFactura,
                 i.USR_GT_FECALT AS FecAltOPItems,
                 i.USR_GTMVII_NROITM AS NroItmCarga,
                 i.USR_VIRT_TOTLIN AS TotalItemCarga,
@@ -126,6 +127,11 @@ router.post("/", async (req, res) => {
                 INNER JOIN USR_GTMVII i WITH (NOLOCK)
                     ON gt.USR_GTMVIH_CODIGO = i.USR_GTMVII_CODIGO
                     AND gt.USR_GTMVIH_CODEMP = i.USR_GTMVII_CODEMP
+                -- JOIN para obtener fecha de factura
+                LEFT JOIN FCRMVH f WITH (NOLOCK)
+                    ON i.USR_GTMVII_CODEMP = f.FCRMVH_CODEMP
+                    AND i.USR_GTMVII_CODFAC = f.FCRMVH_CODFOR
+                    AND i.USR_GTMVII_NROFAC = f.FCRMVH_NROFOR
                 -- JOINs para nombres y localizaciones
                 INNER JOIN VTMCLH vta ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
                 INNER JOIN VTMCLH vtb ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
@@ -258,6 +264,7 @@ router.post("/", async (req, res) => {
                     WHEN gt.CodFac IS NULL OR gt.NroFac = 0 THEN 'Pendiente Facturación'
                     ELSE CONCAT(gt.CodFac, '-', gt.NroFac)
                 END AS FacturaAsociadaOP,
+                gt.FecFactura,
                 
                 -- DATOS DE RECIBO COBRANZA (puede ser NULL si factura sin RC)
                 CASE 
@@ -389,6 +396,7 @@ router.post("/", async (req, res) => {
                     WHEN gt.CodFac IS NULL OR gt.NroFac = 0 THEN 'Pendiente Facturación'
                     ELSE CONCAT(gt.CodFac, '-', gt.NroFac)
                 END,
+                gt.FecFactura,
                 
                 -- DATOS DE RECIBO
                 CASE 

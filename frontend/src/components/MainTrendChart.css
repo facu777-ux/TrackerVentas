@@ -1,0 +1,184 @@
+.main-trend-chart {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-bottom: 0;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: visible;
+  transition: all 0.3s ease;
+}
+
+.main-trend-chart:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl), 0 0 40px rgba(var(--primary-rgb), 0.05);
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.trend-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.trend-title h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.trend-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin: 0.25rem 0 0;
+}
+
+.text-primary {
+  color: var(--primary-color);
+  filter: drop-shadow(0 0 10px rgba(var(--primary-rgb), 0.4));
+}
+
+.time-range-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+}
+
+.time-range-toggle button {
+  background: transparent;
+  border: none;
+  padding: 0.35rem 1rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-range-toggle button:hover {
+  color: var(--text-secondary);
+}
+
+.time-range-toggle button.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+}
+
+.trend-body {
+  width: 100%;
+}
+
+/* Tooltip Custom Styles */
+.trend-chart-tooltip {
+  min-width: 220px !important;
+  background: rgba(var(--bg-surface-rgb), 0.8) !important;
+  border: 1px solid var(--border-primary) !important;
+  padding: 1.25rem !important;
+  border-radius: 16px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+  pointer-events: none;
+}
+
+.tooltip-date {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+
+.tooltip-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+    margin: 0.75rem 0;
+}
+
+.tooltip-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  line-height: 1;
+}
+
+.tooltip-label-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tooltip-detail .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tooltip-detail .label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.tooltip-detail .value {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tooltip-detail.total {
+    margin-top: 0.5rem;
+}
+
+.tooltip-detail.total .label {
+    font-weight: 800;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.tooltip-detail.total .value {
+    color: var(--primary-color);
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.text-xs {
+    font-size: 0.7rem;
+}
+
+/* Recharts Customizations */
+.recharts-legend-wrapper {
+    padding-bottom: 1rem;
+}
+
+.recharts-legend-item-text {
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+@media (max-width: 768px) {
+  .trend-header {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+}

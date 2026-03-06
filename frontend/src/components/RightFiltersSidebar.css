@@ -1,0 +1,112 @@
+.right-filters-sidebar {
+  position: fixed;
+  right: -320px;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-primary);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+}
+
+.right-filters-sidebar.open {
+  right: 0;
+}
+
+.right-sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  animation: fadeIn 0.3s ease;
+}
+
+.right-sidebar-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+}
+
+.right-sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.title-icon {
+  color: var(--primary-color);
+}
+
+.right-sidebar-close {
+  background: var(--bg-accents-2);
+  border: 1px solid var(--border-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.right-sidebar-close:hover {
+  background: #ff4d4d;
+  color: white;
+  border-color: #ff4d4d;
+}
+
+.right-sidebar-content {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 767px) {
+  .right-filters-sidebar {
+    width: 100%;
+    right: -100%;
+  }
+}
+
+/* Floating Trigger Button */
+.right-sidebar-trigger {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 48px;
+  height: 48px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4);
+  cursor: pointer;
+  z-index: 1000;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.right-sidebar-trigger:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 25px rgba(var(--primary-rgb), 0.5);
+}
