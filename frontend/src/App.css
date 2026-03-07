@@ -4,6 +4,18 @@
   background-color: var(--bg-background);
   color: var(--text-primary);
   overflow: hidden;
+  isolation: isolate; /* Crea un nuevo contexto de apilamiento limpio */
+}
+
+/* 
+   SOLUCIÓN AL STACKING CONTEXT:
+   Cuando el mouse está sobre una card (stat-card o kpi-card), 
+   bajamos el z-index de la sidebar para que los hijos de app-content-wrapper 
+   con z-index alto (tooltips) puedan superponerse.
+*/
+.app-layout:has(.stat-card:hover) .premium-sidebar,
+.app-layout:has(.kpi-card:hover) .premium-sidebar {
+  z-index: 5 !important;
 }
 
 .app-content-wrapper {
@@ -23,7 +35,7 @@
   background-color: var(--bg-background);
   border-bottom: 1px solid var(--border-primary);
   padding: 0.75rem 0;
-  z-index: 10000;
+  z-index: 100 !important;
   transition: all 0.3s ease;
 }
 
@@ -160,7 +172,7 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
-    z-index: 10001;
+    z-index: 11000 !important;
     box-shadow: 0 10px 25px rgba(0,0,0,0.3);
 }
 
@@ -195,7 +207,7 @@
     position: absolute;
     bottom: calc(100% + 10px);
     right: 0;
-    width: 220px;
+    width: 250px;
     background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(8px);
     color: white;
@@ -210,8 +222,18 @@
     pointer-events: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateY(10px);
-    z-index: 100;
+    z-index: 11000 !important;
     text-align: left;
+    /* Asegurar que no se salga por la izquierda */
+    left: auto;
+    right: -100px; /* Desplazamos un poco a la derecha si es necesario */
+}
+
+/* Variantes de posición para evitar clipping en los bordes */
+.stat-card:first-child .help-tooltip,
+.kpi-card:first-child .help-tooltip {
+    right: auto;
+    left: 0;
 }
 
 .help-icon-wrapper:hover .help-tooltip {
@@ -537,7 +559,8 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
   position: relative;
-  overflow: visible; /* Cambiado para permitir tooltips */
+  overflow: visible; 
+  z-index: 1;
 }
 
 .stat-card::after {
@@ -559,6 +582,7 @@
   transform: translateY(-5px);
   box-shadow: var(--shadow-md);
   border-color: var(--primary-light);
+  z-index: 3000 !important;
 }
 
 .stat-card:hover::after {

@@ -80,6 +80,7 @@
     border-radius: 8px;
     box-shadow: var(--shadow-lg);
     backdrop-filter: var(--blur);
+    z-index: 11000;
 }
 
 .chart-tooltip .label {

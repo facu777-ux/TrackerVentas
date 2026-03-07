@@ -80,6 +80,7 @@
 
 .kpi-card:hover {
     transform: translateY(-4px);
+    z-index: 3000 !important;
 }
 
 .kpi-icon-box {
