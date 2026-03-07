@@ -118,7 +118,11 @@ const ResultsTable = ({
         }
         
         if (activeFilter === 'facturados') {
-            return `Tiene ${totalCargas} cargas asociadas al mismo presupuesto, ${noFacturadas} no están facturadas, solo ${facturadas} está/están facturadas, y de la/las que está/están facturadas hay ${pendientesRecibo} pendientes de realizar un Recibo / Cobro.`;
+            return `Tiene ${totalCargas} cargas asociadas al mismo presupuesto, ${noFacturadas} no están facturadas, ${facturadas} están facturadas, y de ellas hay ${pendientesRecibo} pendientes de cobro (sin recibo).`;
+        }
+        
+        if (activeFilter === 'pagados') {
+            return `Tiene ${totalCargas} cargas asociadas. El ciclo administrativo (Presupuesto > Carga > Factura > Recibo) está completo para los items seleccionados.`;
         }
         
         return null;
@@ -199,7 +203,9 @@ const ResultsTable = ({
             setEstadoSubFilter('all');
         } else if (activeFilter === 'presupuestos' && estadoSubFilter !== 'all') {
             setEstadoSubFilter('all');
-        } else if (activeFilter === 'facturados' && !['all', 'facturado', 'pagado'].includes(estadoSubFilter)) {
+        } else if (activeFilter === 'facturados' && !['all', 'facturado'].includes(estadoSubFilter)) {
+            setEstadoSubFilter('all');
+        } else if (activeFilter === 'pagados' && !['all', 'pagado'].includes(estadoSubFilter)) {
             setEstadoSubFilter('all');
         }
         // Nota: En 'all' permitimos cualquier estadoSubFilter y no reseteamos
@@ -707,7 +713,7 @@ const ResultsTable = ({
                         </div>
                     )}
 
-                    {(activeFilter === 'all' || activeFilter === 'facturados') && (
+                    {(activeFilter === 'all' || activeFilter === 'pagados') && (
                         <div 
                             className={`filter-list-item ${estadoSubFilter === 'pagado' ? 'active-mobile' : ''}`}
                             onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
@@ -1718,6 +1724,15 @@ const ResultsTable = ({
                                                     USD SII
                                                 </button>
                                             </div>
+                                            {displayCurrency !== 'ARS' && (
+                                                <div className="exchange-rate-info-mini animate-fade-in" style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '600', marginTop: '4px' }}>
+                                                    {displayCurrency === 'USD_BNA' ? (
+                                                        <span>T/C BNA: ${exchangeRate.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                                                    ) : (
+                                                        <span>T/C SII: ${chileExchangeRate.toLocaleString('es-CL', { minimumFractionDigits: 2 })}</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'right', paddingRight: '2.5rem', paddingTop: '1.5rem', verticalAlign: 'bottom' }}>

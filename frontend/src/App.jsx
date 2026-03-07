@@ -8,7 +8,7 @@ import BottleneckFloatingButton from './components/BottleneckFloatingButton';
 import AppSidebar from './components/AppSidebar';
 import RightFiltersSidebar from './components/RightFiltersSidebar';
 import { seguimientoAPI } from './services/api';
-import { FaTruck, FaChartLine, FaExclamationTriangle, FaSun, FaMoon, FaFileInvoice, FaSearch, FaBars, FaTimes, FaFilter } from 'react-icons/fa';
+import { FaTruck, FaChartLine, FaExclamationTriangle, FaSun, FaMoon, FaFileInvoice, FaSearch, FaBars, FaTimes, FaFilter, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
 import { AlertCircle, HelpCircle } from 'lucide-react';
 import './App.css';
 
@@ -22,6 +22,7 @@ function App() {
   const [searchCarga, setSearchCarga] = useState('');
   const [stats, setStats] = useState({
     total: 0,
+    pagados: 0,
     facturados: 0,
     enCarga: 0,
     presupuestos: 0
@@ -280,12 +281,15 @@ function App() {
     
     // Aplicar filtros de categoría (tabs)
     switch (activeFilter) {
+      case 'pagados':
+        return base.filter(item => 
+          item.ReciboCobranza && !item.ReciboCobranza.includes('Pendiente')
+        );
       case 'facturados':
         return base.filter(item =>
           item.CodigoCarga && 
-          item.FacturaAsociadaOP && 
-          !item.FacturaAsociadaOP.includes('Pendiente') &&
-          !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')
+          (item.FacturaAsociadaOP && !item.FacturaAsociadaOP.includes('Pendiente') && !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) &&
+          (!item.ReciboCobranza || item.ReciboCobranza.includes('Pendiente'))
         );
       case 'enCarga':
         return base.filter(item =>
@@ -332,25 +336,38 @@ function App() {
         const pk = `${empresa}-${nroPR}`;
         
         if (!presupuestosUnicos[pk]) {
-            presupuestosUnicos[pk] = { tieneCarga: false, tieneFactura: false, tienePendiente: false, sinCarga: true };
+            presupuestosUnicos[pk] = { 
+                tieneCarga: false, 
+                tieneFactura: false, 
+                tienePago: false 
+            };
         }
 
-        const isFacturado = (item.ReciboCobranza && !item.ReciboCobranza.includes('Pendiente')) || 
-                          (item.FacturaAsociadaOP && !item.FacturaAsociadaOP.includes('Pendiente') && !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA'));
-        
-        if (item.CodigoCarga) {
-            presupuestosUnicos[pk].tieneCarga = true;
-            presupuestosUnicos[pk].sinCarga = false;
-        }
-        if (isFacturado) presupuestosUnicos[pk].tieneFactura = true;
-        else if (item.CodigoCarga) presupuestosUnicos[pk].tienePendiente = true;
+        const hasCarga = !!item.CodigoCarga;
+        const hasInvoice = item.FacturaAsociadaOP && 
+                          !item.FacturaAsociadaOP.includes('Pendiente') && 
+                          !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA');
+        const hasPayment = item.ReciboCobranza && 
+                          !item.ReciboCobranza.includes('Pendiente');
+
+        if (hasCarga) presupuestosUnicos[pk].tieneCarga = true;
+        if (hasInvoice) presupuestosUnicos[pk].tieneFactura = true;
+        if (hasPayment) presupuestosUnicos[pk].tienePago = true;
     });
 
-    const statsCount = { total: Object.keys(presupuestosUnicos).length, facturados: 0, enCarga: 0, presupuestos: 0 };
+    const statsCount = { 
+        total: Object.keys(presupuestosUnicos).length, 
+        pagados: 0, 
+        facturados: 0, 
+        enCarga: 0, 
+        presupuestos: 0 
+    };
+
     Object.values(presupuestosUnicos).forEach(p => {
-        if (p.tienePendiente) statsCount.enCarga++;
+        if (!p.tieneCarga) statsCount.presupuestos++;
+        else if (p.tienePago) statsCount.pagados++;
         else if (p.tieneFactura) statsCount.facturados++;
-        if (p.sinCarga) statsCount.presupuestos++;
+        else statsCount.enCarga++;
     });
     setStats(statsCount);
   }, [data, searchTerm, searchCarga]);
@@ -446,30 +463,6 @@ function App() {
               {activeView === 'dashboard' && hasSearched && !loading && (
                 <div className={`stats-grid ${isMobile ? 'mobile-stats' : ''}`}>
                   <div
-                    className={`stat-card ${activeFilter === 'enCarga' ? 'stat-card-active' : ''}`}
-                    onClick={() => handleStatCardClick('enCarga')}
-                    onMouseMove={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                        e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-                    }}
-                  >
-                    <div className="stat-top">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="stat-label">No Facturados</span>
-                        <div className="help-icon-wrapper">
-                          <HelpCircle size={14} />
-                          <div className="help-tooltip">
-                            Operaciones que ya tienen una carga asignada pero aún no han sido facturadas en el sistema.
-                          </div>
-                        </div>
-                      </div>
-                      <FaExclamationTriangle className="stat-icon" style={{ color: 'var(--warning)' }} />
-                    </div>
-                    <div className="stat-value">{stats.enCarga}</div>
-                  </div>
-
-                  <div
                     className={`stat-card ${activeFilter === 'presupuestos' ? 'stat-card-active' : ''}`}
                     onClick={() => handleStatCardClick('presupuestos')}
                      onMouseMove={(e) => {
@@ -484,13 +477,37 @@ function App() {
                         <div className="help-icon-wrapper">
                           <HelpCircle size={14} />
                           <div className="help-tooltip">
-                            Presupuestos que han sido creados pero que aún no tienen una carga logística asociada para su ejecución.
+                            Presupuestos creados que aún no tienen una carga logística asociada.
                           </div>
                         </div>
                       </div>
-                      <FaSun className="stat-icon" style={{ color: 'var(--primary)' }} />
+                      <FaFileAlt className="stat-icon" style={{ color: 'var(--text-tertiary)' }} />
                     </div>
                     <div className="stat-value">{stats.presupuestos}</div>
+                  </div>
+
+                  <div
+                    className={`stat-card ${activeFilter === 'enCarga' ? 'stat-card-active' : ''}`}
+                    onClick={() => handleStatCardClick('enCarga')}
+                    onMouseMove={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                        e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    }}
+                  >
+                    <div className="stat-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="stat-label">Pendientes de Facturar (Carga/OP)</span>
+                        <div className="help-icon-wrapper">
+                          <HelpCircle size={14} />
+                          <div className="help-tooltip">
+                            Operaciones con carga asignada pero sin factura emitida.
+                          </div>
+                        </div>
+                      </div>
+                      <FaTruck className="stat-icon" style={{ color: 'var(--warning)' }} />
+                    </div>
+                    <div className="stat-value">{stats.enCarga}</div>
                   </div>
 
                   <div
@@ -504,17 +521,41 @@ function App() {
                   >
                     <div className="stat-top">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="stat-label">Facturados</span>
+                        <span className="stat-label">Pendientes de Cobrar (Factura)</span>
                         <div className="help-icon-wrapper">
                           <HelpCircle size={14} />
                           <div className="help-tooltip">
-                            Comprobantes que ya han completado el proceso de facturación y están listos para el seguimiento de cobro.
+                            Facturas emitidas que aún no tienen registrado el recibo de cobro.
                           </div>
                         </div>
                       </div>
-                      <FaFileInvoice className="stat-icon" style={{ color: 'var(--success)' }} />
+                      <FaFileInvoice className="stat-icon" style={{ color: 'var(--primary)' }} />
                     </div>
                     <div className="stat-value">{stats.facturados}</div>
+                  </div>
+
+                  <div
+                    className={`stat-card ${activeFilter === 'pagados' ? 'stat-card-active' : ''}`}
+                    onClick={() => handleStatCardClick('pagados')}
+                     onMouseMove={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        e.currentTarget.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                        e.currentTarget.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                    }}
+                  >
+                    <div className="stat-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="stat-label">Cobrados (Recibo de Cobranza)</span>
+                        <div className="help-icon-wrapper">
+                          <HelpCircle size={14} />
+                          <div className="help-tooltip">
+                            Operaciones que han completado el ciclo administrativo con la emisión del recibo.
+                          </div>
+                        </div>
+                      </div>
+                      <FaCheckCircle className="stat-icon" style={{ color: 'var(--success)' }} />
+                    </div>
+                    <div className="stat-value">{stats.pagados}</div>
                   </div>
 
                   <div
@@ -532,11 +573,11 @@ function App() {
                         <div className="help-icon-wrapper">
                           <HelpCircle size={14} />
                           <div className="help-tooltip">
-                            Volumen total de operaciones registradas bajo los parámetros de búsqueda actuales.
+                            Volumen total de presupuestos y operaciones procesadas en este periodo.
                           </div>
                         </div>
                       </div>
-                      <FaChartLine className="stat-icon" />
+                      <FaChartLine className="stat-icon" style={{ color: 'var(--text-secondary)' }} />
                     </div>
                     <div className="stat-value">{stats.total}</div>
                   </div>
