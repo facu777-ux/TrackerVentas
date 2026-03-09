@@ -119,7 +119,7 @@ function App() {
 
   // 3. Función de Auditoría de Analítica (Trazabilidad Total)
   const exportAnalyticsAudit = () => {
-    const searchedData = getSearchedData();
+    const dataForAudit = searchedData;
     
     if (searchedData.length === 0) {
       alert("No hay datos cargados para auditar.");
@@ -254,7 +254,8 @@ function App() {
     }
   };
 
-  const getSearchedData = () => {
+  // 4. Lógica de Procesamiento de Datos (Memorizada)
+  const searchedData = React.useMemo(() => {
     let base = data;
     if (searchTerm || searchCarga) {
       base = base.filter(item => {
@@ -274,36 +275,34 @@ function App() {
       });
     }
     return base;
-  };
+  }, [data, searchTerm, searchCarga]);
 
-  const getFilteredData = () => {
-    const base = getSearchedData();
-    
+  const filteredData = React.useMemo(() => {
     // Aplicar filtros de categoría (tabs)
     switch (activeFilter) {
       case 'pagados':
-        return base.filter(item => 
+        return searchedData.filter(item => 
           item.ReciboCobranza && !item.ReciboCobranza.includes('Pendiente')
         );
       case 'facturados':
-        return base.filter(item =>
+        return searchedData.filter(item =>
           item.CodigoCarga && 
           (item.FacturaAsociadaOP && !item.FacturaAsociadaOP.includes('Pendiente') && !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) &&
           (!item.ReciboCobranza || item.ReciboCobranza.includes('Pendiente'))
         );
       case 'enCarga':
-        return base.filter(item =>
+        return searchedData.filter(item =>
           item.CodigoCarga && 
           (!item.FacturaAsociadaOP || 
            item.FacturaAsociadaOP.includes('Pendiente') ||
            item.FacturaAsociadaOP.includes('CARGA NO FACTURADA'))
         );
       case 'presupuestos':
-        return base.filter(item => !item.CodigoCarga);
+        return searchedData.filter(item => !item.CodigoCarga);
       default:
-        return base;
+        return searchedData;
     }
-  };
+  }, [searchedData, activeFilter]);
 
   // Efecto para actualizar estadísticas cuando cambian los datos o filtros locales
   useEffect(() => {
@@ -670,7 +669,7 @@ function App() {
                   {analyticsSubView === 'overview' ? (
                     <div className="fade-in">
                       <AnalyticsDashboard 
-                        data={getSearchedData()} 
+                        data={searchedData} 
                         displayCurrency={displayCurrency}
                         setDisplayCurrency={setDisplayCurrency}
                         exchangeRate={exchangeRate}
@@ -683,13 +682,13 @@ function App() {
                   ) : (
                     <div className="analytics-detailed-charts fade-in">
                       <MainTrendChart 
-                        data={getSearchedData()} 
+                        data={searchedData} 
                         displayCurrency={displayCurrency} 
                         exchangeRate={exchangeRate} 
                         chileExchangeRate={chileExchangeRate}
                       />
                       <LogisticsCharts 
-                        data={getSearchedData()} 
+                        data={searchedData} 
                         displayCurrency={displayCurrency} 
                         exchangeRate={exchangeRate}
                         chileExchangeRate={chileExchangeRate}
@@ -720,7 +719,7 @@ function App() {
               {/* Dashboard Table */}
               {activeView === 'dashboard' && hasSearched && !loading && !error && (
                 <ResultsTable 
-                  data={getFilteredData()} 
+                  data={filteredData} 
                   allData={data}
                   loading={loading} 
                   activeFilter={activeFilter}
