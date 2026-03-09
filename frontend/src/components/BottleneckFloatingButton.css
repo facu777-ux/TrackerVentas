@@ -2,7 +2,7 @@
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    z-index: 11000;
+    z-index: 3000;
 }
 
 .bottleneck-trigger {

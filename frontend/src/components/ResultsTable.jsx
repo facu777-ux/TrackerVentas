@@ -143,6 +143,16 @@ const ResultsTable = ({
         }
     };
 
+    const filterInputRef = React.useRef(null);
+    
+    React.useEffect(() => {
+        if (showPRFilter || showClienteFilter) {
+            setTimeout(() => {
+                filterInputRef.current?.focus({ preventScroll: true });
+            }, 50);
+        }
+    }, [showPRFilter, showClienteFilter]);
+
     const formatFecha = (fecha) => {
         if (!fecha) return '-';
         try {
@@ -252,8 +262,8 @@ const ResultsTable = ({
                 item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
             );
 
-            // Filtros Multi-Select estilo Excel
-            const matchesPR = !selectedPresupuestos || selectedPresupuestos.has(item.NroPR || item.NroSolicitud);
+            // Filtros Multi-Select estilo Excel con coincidencia exacta
+            const matchesPR = !selectedPresupuestos || selectedPresupuestos.has((item.NroPR || item.NroSolicitud)?.toString());
             const matchesCliente = !selectedClientes || selectedClientes.has(item.NomCliente);
             const matchesMoneda = !selectedMonedas || selectedMonedas.has(item.Moneda);
 
@@ -294,13 +304,13 @@ const ResultsTable = ({
 
     // Obtener valores únicos para los filtros de Excel
     const uniquePresupuestos = React.useMemo(() => {
-        const values = [...new Set(data.map(item => item.NroPR || item.NroSolicitud))].filter(Boolean);
+        const values = [...new Set(data.map(item => (item.NroPR || item.NroSolicitud)?.toString()))].filter(Boolean);
         return values.sort((a, b) => b - a);
     }, [data]);
 
     const uniqueClientes = React.useMemo(() => {
         const values = [...new Set(data.map(item => item.NomCliente))].filter(Boolean);
-        return values.sort();
+        return values.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
     }, [data]);
 
     const uniqueMonedas = React.useMemo(() => {
@@ -757,13 +767,8 @@ const ResultsTable = ({
         };
 
         const handleAccept = () => {
-            // Si el usuario tiene un término de búsqueda activo y no ha interactuado mucho,
-            // asumimos que quiere filtrar por lo que está viendo.
+            // Usar siempre los elementos seleccionados manualmente por el usuario
             let selectionToApply = new Set(tempSelected);
-            if (filterSearchTerm && filteredOptions.length > 0) {
-                // Si hay búsqueda activa y no se ha desmarcado todo, aplicamos el filtro de lo que se ve
-                selectionToApply = new Set(filteredOptions);
-            }
 
             // Manejo de Clientes/Presupuestos
             if (selectionToApply.size === options.length) {
@@ -841,10 +846,24 @@ const ResultsTable = ({
                     <FaTimesCircle /> Borrar filtro de "{isPR ? 'Prespuesto' : 'Cliente'}"
                 </div>
 
-                {isMobile && <div className="excel-filter-divider" />}
+                <div className="excel-filter-moneda-list">
+                    <div className="filter-actions-row">
+                        <button className="filter-action-btn" onClick={() => setTempSelected(new Set(options))}>Seleccionar Todo</button>
+                        <button className="filter-action-btn" onClick={() => setTempSelected(new Set())}>Limpiar Todo</button>
+                    </div>
+
+                    <div className="selection-stats">
+                        {tempSelected.size === options.length ? (
+                            'Todos seleccionados'
+                        ) : (
+                            `${tempSelected.size} de ${options.length} seleccionados`
+                        )}
+                    </div>
+                </div>
 
                 {!isPR && (
                     <>
+                        <div className="excel-filter-divider" style={{ margin: '0.25rem 0' }} />
                         <div className="excel-filter-section-title">Filtrar por Moneda:</div>
                         <div className="excel-filter-moneda-list">
                             {uniqueMonedas.map(mon => (
@@ -898,12 +917,12 @@ const ResultsTable = ({
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') handleAccept();
                         }}
-                        autoFocus
+                        ref={filterInputRef}
                     />
                     <FaSearch className="filter-search-icon" />
                 </div>
 
-                <div className="excel-filter-list" style={isMobile ? { flex: 1, margin: '0 1rem 1rem 1rem' } : {}}>
+                <div className="excel-filter-list">
                     <label className="filter-list-item">
                         <input 
                             type="checkbox" 
@@ -1409,13 +1428,15 @@ const ResultsTable = ({
                         <FaUser /> Cliente {(selectedClientes || selectedMonedas) && <span className="pill-count">{(selectedClientes?.size || 0) + (selectedMonedas?.size || 0)}</span>}
                         <FaChevronDown className="pill-arrow" />
                     </button>
-                    <button 
-                        className={`mobile-filter-pill ${estadoSubFilter !== 'all' ? 'active' : ''}`}
-                        onClick={() => setShowEstadoModal(true)}
-                    >
-                        <FaInfoCircle /> Estado
-                        <FaChevronDown className="pill-arrow" />
-                    </button>
+                    {activeFilter === 'all' && (
+                        <button 
+                            className={`mobile-filter-pill ${estadoSubFilter !== 'all' ? 'active' : ''}`}
+                            onClick={() => setShowEstadoModal(true)}
+                        >
+                            <FaInfoCircle /> Estado
+                            <FaChevronDown className="pill-arrow" />
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -1430,7 +1451,7 @@ const ResultsTable = ({
                             <col style={{ width: '30%' }} />
                         </colgroup>
                         <thead>
-                            <tr className="bg-slate-950 text-slate-400 text-sm uppercase tracking-wider border-b border-slate-800">
+                            <tr className="table-header-row">
                                 <th 
                                     className="py-4 font-medium clickable-header relative" 
                                     style={{ textAlign: 'left', paddingLeft: '2.5rem' }}
@@ -1438,6 +1459,7 @@ const ResultsTable = ({
                                     <div 
                                         style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
                                         onClick={(e) => {
+                                            e.preventDefault();
                                             e.stopPropagation();
                                             setFilterSearchTerm('');
                                             setTempSelected(selectedPresupuestos ? new Set(selectedPresupuestos) : new Set(uniquePresupuestos));
@@ -1463,18 +1485,18 @@ const ResultsTable = ({
                                             alignItems: 'center', 
                                             justifyContent: 'center', 
                                             gap: '0.5rem',
-                                            cursor: activeFilter === 'presupuestos' ? 'default' : 'pointer' 
+                                            cursor: activeFilter === 'all' ? 'pointer' : 'default' 
                                         }}
                                         onClick={() => {
-                                            if (activeFilter !== 'presupuestos') {
+                                            if (activeFilter === 'all') {
                                                 setShowEstadoModal(!showEstadoModal);
                                             }
                                         }}
                                     >
                                         Estado <FaChevronDown style={{ 
                                             fontSize: '0.8rem', 
-                                            opacity: activeFilter === 'presupuestos' ? 0.2 : 1,
-                                            display: activeFilter === 'presupuestos' ? 'none' : 'block'
+                                            opacity: activeFilter === 'all' ? 1 : 0.2,
+                                            display: activeFilter === 'all' ? 'block' : 'none'
                                         }} />
                                     </div>
 
@@ -1524,6 +1546,7 @@ const ResultsTable = ({
                                     <div 
                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.4rem', cursor: 'pointer' }}
                                         onClick={(e) => {
+                                            e.preventDefault();
                                             e.stopPropagation();
                                             setFilterSearchTerm('');
                                             setTempSelected(selectedClientes ? new Set(selectedClientes) : new Set(uniqueClientes));

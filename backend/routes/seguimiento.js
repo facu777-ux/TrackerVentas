@@ -41,7 +41,8 @@ router.post("/", async (req, res) => {
                 b.USR_BOTPRE_FLGTRP AS ConfirmacionSolicitud
             INTO #Solicitudes
             FROM USR_BOTPRE b WITH (NOLOCK)
-            WHERE b.USR_BO_FECALT BETWEEN @FechaDesde AND @FechaHasta;
+            WHERE b.USR_BO_FECALT BETWEEN @FechaDesde AND @FechaHasta
+            AND (@NroPRFiltro IS NULL OR CAST(b.USR_BOTPRE_NROSOL AS VARCHAR) = @NroPRFiltro);
 
             CREATE CLUSTERED INDEX IX_Solicitudes ON #Solicitudes (EmpresaSolicitud, NroSolicitud);
 
@@ -74,8 +75,9 @@ router.post("/", async (req, res) => {
                 AND (@EmpresaFiltro IS NULL OR h.FCRMVH_CODEMP = @EmpresaFiltro)
                 AND (@NroPRFiltro IS NULL OR h.FCRMVH_NROFOR = @NroPRFiltro);
 
-            CREATE CLUSTERED INDEX IX_PRBase ON #PRBase (FCRMVH_CODEMP, FCRMVH_CODFOR, FCRMVH_NROFOR);
-            CREATE NONCLUSTERED INDEX IX_PRBase_Solicitud ON #PRBase (FCRMVH_CODEMP, SolicitudAplica);
+            CREATE CLUSTERED INDEX IX_PRBase ON #PRBase (FCRMVH_NROFOR, FCRMVH_CODEMP);
+            CREATE NONCLUSTERED INDEX IX_PRBase_Solicitud ON #PRBase (SolicitudAplica, FCRMVH_CODEMP);
+            CREATE NONCLUSTERED INDEX IX_PRBase_Cliente ON #PRBase (FCRMVH_NROCTA);
 
             -- =============================================================================
             -- PASO 2: Cargas asociadas (TODAS - incluso sin factura)
@@ -132,12 +134,12 @@ router.post("/", async (req, res) => {
                     ON i.USR_GTMVII_CODEMP = f.FCRMVH_CODEMP
                     AND i.USR_GTMVII_CODFAC = f.FCRMVH_CODFOR
                     AND i.USR_GTMVII_NROFAC = f.FCRMVH_NROFOR
-                -- JOINs para nombres y localizaciones
-                INNER JOIN VTMCLH vta ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
-                INNER JOIN VTMCLH vtb ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
-                INNER JOIN VTMCLH vtc ON i.USR_GTMVII_CLIENT = vtc.VTMCLH_NROCTA
-                INNER JOIN USR_GTTLOH locA ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
-                INNER JOIN USR_GTTLOH locB ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
+                -- JOINs para nombres y localizaciones con NOLOCK
+                INNER JOIN VTMCLH vta WITH (NOLOCK) ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
+                INNER JOIN VTMCLH vtb WITH (NOLOCK) ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
+                INNER JOIN VTMCLH vtc WITH (NOLOCK) ON i.USR_GTMVII_CLIENT = vtc.VTMCLH_NROCTA
+                INNER JOIN USR_GTTLOH locA WITH (NOLOCK) ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
+                INNER JOIN USR_GTTLOH locB WITH (NOLOCK) ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
             WHERE 
                 gt.USR_GTMVIH_CODFOR = 'PR'
                 AND EXISTS (
@@ -150,9 +152,9 @@ router.post("/", async (req, res) => {
                 AND ISNULL(gt.USR_GTMVIH_ANULAR, 'N') <> 'S'
                 AND (gt.USR_GTMVIH_MOTBAJ IS NULL OR gt.USR_GTMVIH_MOTBAJ = '');
 
-            CREATE CLUSTERED INDEX IX_Cargas ON #Cargas (EmpreCarga, CodPR, NroPR);
-            CREATE NONCLUSTERED INDEX IX_Cargas_Cod ON #Cargas (CodCar);
-            CREATE NONCLUSTERED INDEX IX_Cargas_Factura ON #Cargas (EmpreI, CodFac, NroFac);
+            CREATE CLUSTERED INDEX IX_Cargas ON #Cargas (NroPR, EmpreCarga);
+            CREATE NONCLUSTERED INDEX IX_Cargas_Cod ON #Cargas (CodCar, EmpreCarga);
+            CREATE NONCLUSTERED INDEX IX_Cargas_Factura ON #Cargas (NroFac, CodFac, EmpreI);
 
             -- =============================================================================
             -- PASO 3: Recibos de Cobranza (TODOS - solo de facturas existentes)

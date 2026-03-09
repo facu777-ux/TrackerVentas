@@ -459,8 +459,33 @@ function App() {
         <main className="app-main">
           <div className="container main-container">
             <div className="content-area">
+              {/* Loader Global */}
+              {loading && (
+                <div className="global-loader-container">
+                  <div className="loader-box">
+                    <div className="premium-spinner"></div>
+                    <h3>Sincronizando con Softland</h3>
+                    <p>Consultando trazabilidad y procesando resultados...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Manejo de Errores */}
+              {error && !loading && (
+                <div className="error-display fade-in">
+                  <div className="error-card">
+                    <AlertCircle size={40} className="error-icon" />
+                    <h3>Ocurrió un Problema</h3>
+                    <p>{error}</p>
+                    <button className="primary-btn" onClick={() => handleSearch(searchCriteria)}>
+                      Reintentar Búsqueda
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Stats Cards - Solo en Dashboard */}
-              {activeView === 'dashboard' && hasSearched && !loading && (
+              {activeView === 'dashboard' && hasSearched && !loading && !error && (
                 <div className={`stats-grid ${isMobile ? 'mobile-stats' : ''}`}>
                   <div
                     className={`stat-card ${activeFilter === 'presupuestos' ? 'stat-card-active' : ''}`}
@@ -481,9 +506,9 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <FaFileAlt className="stat-icon" style={{ color: 'var(--text-tertiary)' }} />
                     </div>
                     <div className="stat-value">{stats.presupuestos}</div>
+                    <FaFileAlt className="stat-icon" style={{ color: 'var(--text-tertiary)' }} />
                   </div>
 
                   <div
@@ -505,9 +530,9 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <FaTruck className="stat-icon" style={{ color: 'var(--warning)' }} />
                     </div>
                     <div className="stat-value">{stats.enCarga}</div>
+                    <FaTruck className="stat-icon" style={{ color: 'var(--warning)' }} />
                   </div>
 
                   <div
@@ -529,9 +554,9 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <FaFileInvoice className="stat-icon" style={{ color: 'var(--primary)' }} />
                     </div>
                     <div className="stat-value">{stats.facturados}</div>
+                    <FaFileInvoice className="stat-icon" style={{ color: 'var(--primary)' }} />
                   </div>
 
                   <div
@@ -553,9 +578,9 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <FaCheckCircle className="stat-icon" style={{ color: 'var(--success)' }} />
                     </div>
                     <div className="stat-value">{stats.pagados}</div>
+                    <FaCheckCircle className="stat-icon" style={{ color: 'var(--success)' }} />
                   </div>
 
                   <div
@@ -577,15 +602,15 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <FaChartLine className="stat-icon" style={{ color: 'var(--text-secondary)' }} />
                     </div>
                     <div className="stat-value">{stats.total}</div>
+                    <FaChartLine className="stat-icon" style={{ color: 'var(--text-secondary)' }} />
                   </div>
                 </div>
               )}
 
               {/* View: ANALITICA - Dashboard y Gráficos Detallados Divididos */}
-              {activeView === 'analitica' && hasSearched && !loading && (
+              {activeView === 'analitica' && hasSearched && !loading && !error && (
                 <div className="analytics-view-container animate-fade-in">
                   {/* Selector de Sub-Vistas estilo Premium con Controles de Moneda */}
                   <div className="analytics-nav-bar">
@@ -684,7 +709,7 @@ function App() {
               )}
 
               {/* Mensaje inicial Dashboard */}
-              {activeView === 'dashboard' && !hasSearched && !loading && (
+              {activeView === 'dashboard' && !hasSearched && !loading && !error && (
                 <div className="welcome-message fade-in">
                   <FaChartLine className="welcome-icon" />
                   <h2>Bienvenido al Sistema de Seguimiento</h2>
@@ -693,7 +718,7 @@ function App() {
               )}
 
               {/* Dashboard Table */}
-              {activeView === 'dashboard' && hasSearched && !loading && (
+              {activeView === 'dashboard' && hasSearched && !loading && !error && (
                 <ResultsTable 
                   data={getFilteredData()} 
                   allData={data}

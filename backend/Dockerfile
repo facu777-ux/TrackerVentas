@@ -1,18 +1,8 @@
-# Traemos el binario oficial de Tailscale
-FROM tailscale/tailscale:latest AS tailscale
-
 # Usamos la imagen de Node.js para el Backend
 FROM node:20-slim
 
-# Instalamos dependencias mínimas para red
-RUN apt-get update && apt-get install -y ca-certificates iptables && rm -rf /var/lib/apt/lists/*
-
-# Copiamos el binario de Tailscale desde la primera imagen
-COPY --from=tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
-COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
-
-# Preparamos directorios para Tailscale
-RUN mkdir -p /var/lib/tailscale /var/cache/tailscale /var/run/tailscale
+# Instalamos dependencias mínimas si fueran necesarias
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Preparamos nuestra app
 WORKDIR /app
@@ -24,11 +14,9 @@ RUN npm install --production
 # Copiamos el resto del código
 COPY . .
 
-# Copiamos el script que manejará ambos procesos
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-# Exponemos el puerto del backend
+# Exponemos el puerto del backend (Render suele usar el que definas o 10000 por defecto)
+# Pero mantenemos el 3001 por consistencia con tu config local
 EXPOSE 3001
 
-CMD ["/start.sh"]
+# Arrancamos directamente con npm start
+CMD ["npm", "start"]

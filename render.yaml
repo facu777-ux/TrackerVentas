@@ -8,8 +8,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: TAILSCALE_AUTHKEY
-        sync: false
       - key: DB_SERVER
         sync: false
       - key: DB_DATABASE
