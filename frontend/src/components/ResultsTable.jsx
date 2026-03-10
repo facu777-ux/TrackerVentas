@@ -145,6 +145,32 @@ const ResultsTable = ({
 
     const filterInputRef = React.useRef(null);
     
+    // Filtros estilo Excel (Declarados antes de su uso en useEffect)
+    const [showPRFilter, setShowPRFilter] = useState(false);
+    const [showClienteFilter, setShowClienteFilter] = useState(false);
+    const [selectedPresupuestos, setSelectedPresupuestos] = useState(null); // null = todos
+    const [selectedClientes, setSelectedClientes] = useState(null); // null = todos
+    const [selectedMonedas, setSelectedMonedas] = useState(null); // null = todas
+    const [filterSearchTerm, setFilterSearchTerm] = useState('');
+    const [tempSelected, setTempSelected] = useState(new Set()); 
+    const [tempSelectedMonedas, setTempSelectedMonedas] = useState(new Set()); 
+    
+    // Filtros de fecha locales para la columna Presupuesto/Fecha
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
+    const [tempStartDate, setTempStartDate] = useState('');
+    const [tempEndDate, setTempEndDate] = useState('');
+    const [activePopover, setActivePopover] = useState(null); 
+    const [selectedDocRef, setSelectedDocRef] = useState(null); 
+
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(25);
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
+    const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
+    const [showEstadoModal, setShowEstadoModal] = useState(false);
+
     React.useEffect(() => {
         if (showPRFilter || showClienteFilter) {
             setTimeout(() => {
@@ -170,32 +196,6 @@ const ResultsTable = ({
         }).format(valor);
         return `${formatted} ${moneda || 'ARS'}`;
     };
-
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-    const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(25);
-    const [selectedItem, setSelectedItem] = useState(null);
-    const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
-    const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
-    const [showEstadoModal, setShowEstadoModal] = useState(false);
-
-    // Filtros estilo Excel
-    const [selectedPresupuestos, setSelectedPresupuestos] = useState(null); // null = todos
-    const [selectedClientes, setSelectedClientes] = useState(null); // null = todos
-    const [selectedMonedas, setSelectedMonedas] = useState(null); // null = todas
-    const [showPRFilter, setShowPRFilter] = useState(false);
-    const [showClienteFilter, setShowClienteFilter] = useState(false);
-    const [filterSearchTerm, setFilterSearchTerm] = useState('');
-    const [tempSelected, setTempSelected] = useState(new Set()); 
-    const [tempSelectedMonedas, setTempSelectedMonedas] = useState(new Set()); // Para la selección temporal antes de darle OK
-    
-    // Filtros de fecha locales para la columna Presupuesto/Fecha
-    const [filterStartDate, setFilterStartDate] = useState('');
-    const [filterEndDate, setFilterEndDate] = useState('');
-    const [tempStartDate, setTempStartDate] = useState('');
-    const [tempEndDate, setTempEndDate] = useState('');
-    const [activePopover, setActivePopover] = useState(null); // { type: 'factura'|'recibo', budgetKey: string, anchorEl: HTMLElement, documents: string[] }
-    const [selectedDocRef, setSelectedDocRef] = useState(null); // Numero de factura o recibo seleccionado desde el popover
 
     // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en pendientes
     React.useEffect(() => {

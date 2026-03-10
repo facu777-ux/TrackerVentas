@@ -10,6 +10,7 @@ BigInt.prototype.toJSON = function () {
 
 const seguimientoRoutes = require("./routes/seguimiento");
 const dashboardRoutes = require("./routes/dashboard");
+const keepAlive = require("./utils/keepAlive");
 
 const app = express();
 const PORT = process.env.PORT || 3005;
@@ -54,4 +55,7 @@ app.listen(PORT, () => {
   console.log(`📡 Puerto: ${PORT}`);
   console.log(`🌐 URL: http://localhost:${PORT}`);
   console.log(`🏥 Health check: http://localhost:${PORT}/api/health\n`);
+  
+  // Activar Keep-Alive para Render
+  keepAlive();
 });
