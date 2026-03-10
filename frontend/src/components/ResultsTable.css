@@ -174,8 +174,8 @@
 }
 
 .table-header-row th {
-  background-color: #020617; /* Slate 950 sólido */
-  color: var(--text-tertiary);
+  background-color: var(--bg-accents-1); 
+  color: var(--text-secondary);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
