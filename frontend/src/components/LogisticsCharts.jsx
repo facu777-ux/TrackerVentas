@@ -7,6 +7,9 @@ import { TrendingUp, PieChart as PieIcon, BarChart3, Info, HelpCircle } from 'lu
 import './LogisticsCharts.css';
 
 const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurrency = 'ARS', exchangeRate = 1000, chileExchangeRate = 900 }) => {
+    const [activePieIndex, setActivePieIndex] = React.useState(null);
+    const [activeBarIndex, setActiveBarIndex] = React.useState(null);
+
     // 1. Aplicar filtros globales de búsqueda a los datos antes de procesar
     const processedData = React.useMemo(() => {
         if (!searchTerm && !searchCarga) return data;
@@ -174,6 +177,39 @@ const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurre
                 <div className="chart-body">
                     <ResponsiveContainer width="100%" height={250}>
                         <PieChart>
+                            <defs>
+                                <filter id="pieShadow3d" height="200%">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                                    <feOffset in="blur" dx="0" dy="5" result="offsetBlur" />
+                                    <feComponentTransfer in="offsetBlur" result="shadowAlpha">
+                                        <feFuncA type="linear" slope="0.3" />
+                                    </feComponentTransfer>
+                                    <feComposite in="SourceGraphic" in2="shadowAlpha" operator="over" />
+                                </filter>
+                                {statusData.map((entry, idx) => (
+                                    <linearGradient id={`pieGrad-${idx}`} key={idx} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={COLORS[idx % COLORS.length]} stopOpacity={1} />
+                                        <stop offset="100%" stopColor={COLORS[idx % COLORS.length]} stopOpacity={0.7} />
+                                    </linearGradient>
+                                ))}
+                            </defs>
+                            {/* Capa de Profundidad */}
+                            <Pie
+                                data={statusData}
+                                cx="50%"
+                                cy="54%"
+                                innerRadius={58}
+                                outerRadius={78}
+                                paddingAngle={5}
+                                dataKey="value"
+                                stroke="none"
+                                isAnimationActive={false}
+                            >
+                                {statusData.map((entry, index) => (
+                                    <Cell key={`depth-${index}`} fill="#000" fillOpacity={0.15} />
+                                ))}
+                            </Pie>
+                            {/* Pie Principal */}
                             <Pie
                                 data={statusData}
                                 cx="50%"
@@ -182,10 +218,24 @@ const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurre
                                 outerRadius={80}
                                 paddingAngle={5}
                                 dataKey="value"
-                                stroke="none"
+                                stroke="var(--bg-card)"
+                                strokeWidth={1}
+                                filter="url(#pieShadow3d)"
+                                onMouseEnter={(_, index) => setActivePieIndex(index)}
+                                onMouseLeave={() => setActivePieIndex(null)}
                             >
                                 {statusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    <Cell 
+                                        key={`cell-${index}`} 
+                                        fill={COLORS[index % COLORS.length]} 
+                                        style={{ 
+                                            outline: 'none', 
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
+                                            filter: activePieIndex === index ? 'brightness(1.1) saturate(1.2)' : 'none'
+                                        }}
+                                        scale={activePieIndex === index ? 1.05 : 1}
+                                    />
                                 ))}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
@@ -210,7 +260,21 @@ const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurre
                 </div>
                 <div className="chart-body">
                     <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={currencyData}>
+                        <BarChart data={currencyData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                            <defs>
+                                <linearGradient id="barGradBlue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#60a5fa" stopOpacity={1} />
+                                    <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
+                                </linearGradient>
+                                <filter id="barShadow3d" height="150%">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+                                    <feOffset in="blur" dx="2" dy="2" result="offsetBlur" />
+                                    <feComponentTransfer in="offsetBlur" result="shadowAlpha">
+                                        <feFuncA type="linear" slope="0.3" />
+                                    </feComponentTransfer>
+                                    <feComposite in="SourceGraphic" in2="shadowAlpha" operator="over" />
+                                </filter>
+                            </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-primary)" />
                             <XAxis 
                                 dataKey="moneda" 
@@ -224,12 +288,57 @@ const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurre
                                 tick={{ fill: 'var(--text-tertiary)', fontSize: 12 }}
                                 hide
                             />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(var(--primary-rgb), 0.05)' }} />
+                            <Tooltip 
+                                content={<CustomTooltip />} 
+                                cursor={{ fill: 'var(--bg-card)', fillOpacity: 0.1 }} 
+                            />
                             <Bar 
                                 dataKey="monto" 
-                                fill="var(--accent-blue)" 
-                                radius={[4, 4, 0, 0]}
                                 barSize={40}
+                                onMouseEnter={(_, index) => setActiveBarIndex(index)}
+                                onMouseLeave={() => setActiveBarIndex(null)}
+                                shape={(props) => {
+                                    const { x, y, width, height, index } = props;
+                                    const isHovered = activeBarIndex === index;
+                                    
+                                    const hoverLift = isHovered ? 5 : 0;
+                                    const finalY = y - hoverLift;
+                                    const finalHeight = height + hoverLift;
+                                    
+                                    const depth = 6;
+                                    
+                                    return (
+                                        <g filter="url(#barShadow3d)" style={{ transition: 'all 0.3s ease' }}>
+                                            {/* Cara Lateral */}
+                                            <path 
+                                                d={`M ${x + width},${finalY} L ${x + width + depth},${finalY - depth} L ${x + width + depth},${finalY + finalHeight - depth} L ${x + width},${finalY + finalHeight} Z`} 
+                                                fill="#1d4ed8" 
+                                                fillOpacity={isHovered ? 1 : 0.8}
+                                                style={{ transition: 'all 0.3s ease' }}
+                                            />
+                                            {/* Cara Superior */}
+                                            <path 
+                                                d={`M ${x},${finalY} L ${x + depth},${finalY - depth} L ${x + width + depth},${finalY - depth} L ${x + width},${finalY} Z`} 
+                                                fill={isHovered ? '#fff' : '#93c5fd'}
+                                                fillOpacity={0.9}
+                                                style={{ transition: 'all 0.3s ease' }}
+                                            />
+                                            {/* Cara Frontal */}
+                                            <rect 
+                                                x={x} 
+                                                y={finalY} 
+                                                width={width} 
+                                                height={finalHeight} 
+                                                fill="url(#barGradBlue)" 
+                                                rx={2}
+                                                style={{ 
+                                                    transition: 'all 0.3s ease',
+                                                    filter: isHovered ? 'brightness(1.1)' : 'none'
+                                                }}
+                                            />
+                                        </g>
+                                    );
+                                }}
                             />
                         </BarChart>
                     </ResponsiveContainer>

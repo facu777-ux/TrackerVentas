@@ -10,6 +10,19 @@ import './MainTrendChart.css';
 
 const MainTrendChart = ({ data, displayCurrency = 'ARS', exchangeRate = 1000, chileExchangeRate = 900 }) => {
   const [timeRange, setTimeRange] = useState('30d');
+  const [visibleStates, setVisibleStates] = useState(['Pagado', 'Facturado', 'No Facturado', 'Solo Presupuesto']);
+
+  const handleToggleState = (stateName) => {
+    setVisibleStates(prev => {
+        if (prev.includes(stateName)) {
+            // Si solo queda uno, no permitimos vaciar el gráfico para evitar confusión
+            if (prev.length === 1) return prev;
+            return prev.filter(s => s !== stateName);
+        } else {
+            return [...prev, stateName];
+        }
+    });
+  };
 
   const normalizeAmount = (amount, itemCurrency) => {
     const currency = (itemCurrency || '').toString().toUpperCase().trim();
@@ -132,6 +145,54 @@ const MainTrendChart = ({ data, displayCurrency = 'ARS', exchangeRate = 1000, ch
     { name: 'Solo Presupuesto', color: '#64748b', stackId: '1' }
   ];
 
+  const renderLegend = (props) => {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '24px', 
+        marginBottom: '20px',
+        padding: '0 10px',
+        flexWrap: 'wrap'
+      }}>
+        {series.map((entry, index) => {
+          const isVisible = visibleStates.includes(entry.name);
+          return (
+            <div 
+              key={`item-${index}`}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                opacity: isVisible ? 1 : 0.3,
+                filter: isVisible ? 'none' : 'grayscale(1)'
+              }}
+              onClick={() => handleToggleState(entry.name)}
+            >
+              <div style={{ 
+                width: '10px', 
+                height: '10px', 
+                borderRadius: '50%', 
+                backgroundColor: entry.color,
+                marginRight: '8px',
+                boxShadow: isVisible ? `0 0 8px ${entry.color}44` : 'none'
+              }}></div>
+              <span style={{ 
+                fontSize: '0.75rem', 
+                fontWeight: '600', 
+                color: 'var(--text-primary)',
+                letterSpacing: '0.02em'
+              }}>
+                {entry.name}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="main-trend-chart glass-card fade-in">
       <div className="trend-header">
@@ -185,7 +246,7 @@ const MainTrendChart = ({ data, displayCurrency = 'ARS', exchangeRate = 1000, ch
                 tickFormatter={(val) => val >= 1000 ? `$${(val/1000).toFixed(0)}k` : `$${val}`}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend verticalAlign="top" height={36} iconType="circle" />
+            <Legend content={renderLegend} verticalAlign="top" height={40} />
             {series.map(s => (
                 <Area 
                     key={s.name}
@@ -197,6 +258,7 @@ const MainTrendChart = ({ data, displayCurrency = 'ARS', exchangeRate = 1000, ch
                     fillOpacity={1} 
                     fill={`url(#color${s.name.replace(/\s/g, '')})`} 
                     animationDuration={1500}
+                    hide={!visibleStates.includes(s.name)}
                 />
             ))}
           </AreaChart>

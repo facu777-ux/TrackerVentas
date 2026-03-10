@@ -1049,3 +1049,14 @@
     justify-content: center;
   }
 }
+
+/* Animaciones de Switcher Analytics */
+.analytics-content-transitions {
+    width: 100%;
+    position: relative;
+    min-height: 600px; /* Evita saltos de scroll durante el cambio de vista */
+}
+
+.analytics-content-transitions > div {
+    width: 100%;
+}

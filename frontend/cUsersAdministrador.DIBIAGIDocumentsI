@@ -1,0 +1,10 @@
+
+/* Animaciones de Switcher Analytics */
+.analytics-content-transitions {
+    width: 100%;
+    min-height: 600px; /* Evita colapsos visuales durante la transición */
+}
+
+.analytics-content-transitions > div {
+    width: 100%;
+}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import SearchFilters from './components/SearchFilters';
 import ResultsTable from './components/ResultsTable';
 import LogisticsCharts from './components/LogisticsCharts';
 import MainTrendChart from './components/MainTrendChart';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import LogisticsView from './components/LogisticsView';
 import BottleneckFloatingButton from './components/BottleneckFloatingButton';
 import AppSidebar from './components/AppSidebar';
 import RightFiltersSidebar from './components/RightFiltersSidebar';
@@ -666,35 +668,52 @@ function App() {
                     </div>
                   </div>
 
-                  {analyticsSubView === 'overview' ? (
-                    <div className="fade-in">
-                      <AnalyticsDashboard 
-                        data={searchedData} 
-                        displayCurrency={displayCurrency}
-                        setDisplayCurrency={setDisplayCurrency}
-                        exchangeRate={exchangeRate}
-                        chileExchangeRate={chileExchangeRate}
-                        onExportSoloPresupuesto={exportSoloPresupuesto}
-                        onExportAudit={exportAnalyticsAudit}
-                        searchCriteria={searchCriteria}
-                      />
-                    </div>
-                  ) : (
-                    <div className="analytics-detailed-charts fade-in">
-                      <MainTrendChart 
-                        data={searchedData} 
-                        displayCurrency={displayCurrency} 
-                        exchangeRate={exchangeRate} 
-                        chileExchangeRate={chileExchangeRate}
-                      />
-                      <LogisticsCharts 
-                        data={searchedData} 
-                        displayCurrency={displayCurrency} 
-                        exchangeRate={exchangeRate}
-                        chileExchangeRate={chileExchangeRate}
-                      />
-                    </div>
-                  )}
+                  <div className="analytics-content-transitions" style={{ position: 'relative', overflow: 'hidden' }}>
+                    <AnimatePresence mode="wait">
+                      {analyticsSubView === 'overview' ? (
+                        <motion.div 
+                          key="overview"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          <AnalyticsDashboard 
+                            data={searchedData} 
+                            displayCurrency={displayCurrency}
+                            setDisplayCurrency={setDisplayCurrency}
+                            exchangeRate={exchangeRate}
+                            chileExchangeRate={chileExchangeRate}
+                            onExportSoloPresupuesto={exportSoloPresupuesto}
+                            onExportAudit={exportAnalyticsAudit}
+                            searchCriteria={searchCriteria}
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          key="detailed"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                          className="analytics-detailed-charts"
+                        >
+                          <MainTrendChart 
+                            data={searchedData} 
+                            displayCurrency={displayCurrency} 
+                            exchangeRate={exchangeRate} 
+                            chileExchangeRate={chileExchangeRate}
+                          />
+                          <LogisticsCharts 
+                            data={searchedData} 
+                            displayCurrency={displayCurrency} 
+                            exchangeRate={exchangeRate}
+                            chileExchangeRate={chileExchangeRate}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               )}
 
@@ -705,6 +724,15 @@ function App() {
                  <h2>Módulo de Analítica</h2>
                  <p>Realiza una búsqueda para visualizar las tendencias y métricas operativas.</p>
                </div>
+              )}
+
+              {/* View: LOGISTICA - Control Operativo */}
+              {activeView === 'logistica' && (
+                <LogisticsView 
+                  data={data} 
+                  loading={loading} 
+                  searchCriteria={searchCriteria}
+                />
               )}
 
               {/* Mensaje inicial Dashboard */}
