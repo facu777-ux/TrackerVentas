@@ -154,14 +154,13 @@
 
 /* Table */
 .table-wrapper {
-  overflow-x: auto;
+  overflow: visible; /* Cambiado de overflow-x: auto para evitar conflicto con sticky header */
   position: relative;
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
 
 .table-wrapper.filter-open {
-  overflow: visible !important;
   z-index: 5001;
 }
 
