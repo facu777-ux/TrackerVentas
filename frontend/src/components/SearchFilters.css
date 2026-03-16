@@ -246,3 +246,64 @@
   color: var(--text-primary);
   border-color: var(--text-primary);
 }
+
+/* Quick Filters */
+.quick-filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.quick-filters-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quick-filters-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-btn {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-primary);
+  border-radius: 100px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.quick-btn:hover {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+}
+
+.quick-btn.active {
+  background: rgba(var(--primary-rgb), 0.15);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 10px rgba(var(--primary-rgb), 0.1);
+}
+
+.sidebar-quick-filters .quick-filters-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.sidebar-quick-filters .quick-btn {
+  font-size: 0.7rem;
+  padding: 0.4rem 0.6rem;
+  text-align: center;
+}

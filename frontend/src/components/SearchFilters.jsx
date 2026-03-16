@@ -108,6 +108,96 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
     setShowSugerencias(false);
   };
 
+  const applyQuickFilter = (type) => {
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    
+    let desde = new Date();
+    let hasta = tomorrow;
+
+    // Resetear horas para comparaciones limpias
+    today.setHours(0, 0, 0, 0);
+    desde.setHours(0, 0, 0, 0);
+
+    switch (type) {
+      case 'hoy':
+        desde = today;
+        break;
+      case 'semana':
+        const day = today.getDay() || 7;
+        desde.setDate(today.getDate() - day + 1);
+        break;
+      case 'mes':
+        desde = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      case 'mes-anterior':
+        desde = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        hasta = new Date(today.getFullYear(), today.getMonth(), 0);
+        hasta.setDate(hasta.getDate() + 1); // Para incluir el último día
+        break;
+      case '3-meses':
+        desde = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+        break;
+      case 'año':
+        desde = new Date(today.getFullYear(), 0, 1);
+        break;
+      case 'todo':
+        desde = new Date(2010, 0, 1);
+        break;
+      default:
+        return;
+    }
+
+    setFilters(prev => ({
+      ...prev,
+      fechaDesde: desde.toISOString().split('T')[0],
+      fechaHasta: hasta.toISOString().split('T')[0]
+    }));
+  };
+
+  const isQuickActive = (type) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    let desde = new Date();
+    let hasta = tomorrow;
+
+    switch (type) {
+      case 'hoy': desde = today; break;
+      case 'semana':
+        const day = today.getDay() || 7;
+        desde.setDate(today.getDate() - day + 1);
+        desde.setHours(0,0,0,0);
+        break;
+      case 'mes':
+        desde = new Date(today.getFullYear(), today.getMonth(), 1);
+        break;
+      case 'mes-anterior':
+        desde = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        hasta = new Date(today.getFullYear(), today.getMonth(), 0);
+        hasta.setDate(hasta.getDate() + 1);
+        break;
+      case '3-meses':
+        desde = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+        desde.setHours(0,0,0,0);
+        break;
+      case 'año':
+        desde = new Date(today.getFullYear(), 0, 1);
+        break;
+      case 'todo':
+        desde = new Date(2010, 0, 1);
+        break;
+      default: return false;
+    }
+
+    return filters.fechaDesde === desde.toISOString().split('T')[0] && 
+           filters.fechaHasta === hasta.toISOString().split('T')[0];
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const filtrosLimpios = {
@@ -226,6 +316,20 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {/* Acceso rápido a fechas */}
+        <div className={`quick-filters-container ${isInSidebar ? 'sidebar-quick-filters' : ''}`}>
+          <span className="quick-filters-label">Acceso rápido:</span>
+          <div className="quick-filters-btns">
+            <button type="button" onClick={() => applyQuickFilter('hoy')} className={`quick-btn ${isQuickActive('hoy') ? 'active' : ''}`}>Hoy</button>
+            <button type="button" onClick={() => applyQuickFilter('semana')} className={`quick-btn ${isQuickActive('semana') ? 'active' : ''}`}>Esta semana</button>
+            <button type="button" onClick={() => applyQuickFilter('mes')} className={`quick-btn ${isQuickActive('mes') ? 'active' : ''}`}>Este mes</button>
+            <button type="button" onClick={() => applyQuickFilter('mes-anterior')} className={`quick-btn ${isQuickActive('mes-anterior') ? 'active' : ''}`}>Mes anterior</button>
+            <button type="button" onClick={() => applyQuickFilter('3-meses')} className={`quick-btn ${isQuickActive('3-meses') ? 'active' : ''}`}>Últimos 3 meses</button>
+            <button type="button" onClick={() => applyQuickFilter('año')} className={`quick-btn ${isQuickActive('año') ? 'active' : ''}`}>Este año</button>
+            <button type="button" onClick={() => applyQuickFilter('todo')} className={`quick-btn ${isQuickActive('todo') ? 'active' : ''}`}>Todo el historial</button>
           </div>
         </div>
 
