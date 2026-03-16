@@ -29,7 +29,22 @@ function App() {
     enCarga: 0,
     presupuestos: 0
   });
-  const [searchCriteria, setSearchCriteria] = useState(null);
+  const [searchCriteria, setSearchCriteria] = useState(() => {
+    const sesentaDiasAtras = new Date();
+    sesentaDiasAtras.setDate(sesentaDiasAtras.getDate() - 60);
+    
+    const mañana = new Date();
+    mañana.setDate(mañana.getDate() + 1);
+    
+    return {
+      empresa: 'DIBIAG',
+      fechaDesde: sesentaDiasAtras.toISOString().split('T')[0],
+      fechaHasta: mañana.toISOString().split('T')[0],
+      cliente: '',
+      nroPR: '',
+      limit: 100
+    };
+  });
 
   // Sidebar States
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' o 'analitica'
@@ -760,6 +775,7 @@ function App() {
                   setDisplayCurrency={setDisplayCurrency}
                   exchangeRate={exchangeRate}
                   chileExchangeRate={chileExchangeRate}
+                  searchCriteria={searchCriteria}
                 />
               )}
             </div>

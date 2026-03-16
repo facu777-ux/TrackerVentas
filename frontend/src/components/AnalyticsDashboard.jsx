@@ -194,8 +194,8 @@ const AnalyticsDashboard = ({ data, displayCurrency, setDisplayCurrency, exchang
                     <div className="analytics-period-badge">
                         <Calendar size={16} />
                         {searchCriteria?.fechaDesde && searchCriteria?.fechaHasta 
-                            ? `${new Date(searchCriteria.fechaDesde).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }).split('/').slice(0, 2).join('/')} - ${new Date(searchCriteria.fechaHasta).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}`
-                            : 'Últimos 30 días'}
+                            ? `${new Date(searchCriteria.fechaDesde + 'T00:00:00').toLocaleDateString('es-AR')} - ${new Date(searchCriteria.fechaHasta + 'T00:00:00').toLocaleDateString('es-AR')}`
+                            : 'Últimos 60 días'}
                     </div>
                     {onExportAudit && (
                         <button 

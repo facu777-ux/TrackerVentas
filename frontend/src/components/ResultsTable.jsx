@@ -43,7 +43,8 @@ const ResultsTable = ({
     displayCurrency = 'ARS',
     setDisplayCurrency,
     exchangeRate = 1000,
-    chileExchangeRate = 900
+    chileExchangeRate = 900,
+    searchCriteria = null
 }) => {
     // Memoize budget contexts to avoid O(N^2) complexity on every render
     const budgetContexts = React.useMemo(() => {
@@ -133,7 +134,7 @@ const ResultsTable = ({
         const recibo = item.ReciboCobranza;
 
         if (recibo && !recibo.includes('Pendiente')) {
-            return { class: 'badge-pagado', text: 'PAGADO', dot: 'bg-emerald-500' };
+            return { class: 'badge-pagado', text: 'COBRADO', dot: 'bg-emerald-500' };
         } else if (factura && !factura.includes('CARGA NO FACTURADA') && !factura.includes('Pendiente')) {
             return { class: 'badge-facturado', text: 'FACTURADO', dot: 'bg-blue-500' };
         } else if (item.CodigoCarga) {
@@ -197,12 +198,12 @@ const ResultsTable = ({
         return `${formatted} ${moneda || 'ARS'}`;
     };
 
-    // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en pendientes
+    // Efecto para ordenar por fecha ascendente (más antiguo primero) cuando se enfoca en procesos pendientes
     React.useEffect(() => {
-        if (activeFilter === 'enCarga' || estadoSubFilter === 'noFacturado') {
+        if (activeFilter === 'enCarga' || activeFilter === 'presupuestos' || activeFilter === 'facturados' || estadoSubFilter === 'noFacturado') {
             setSortConfig({ key: 'date', direction: 'asc' });
         } else {
-            // Default normal
+            // Default normal (más nuevo primero)
             setSortConfig({ key: null, direction: 'asc' });
         }
     }, [activeFilter, estadoSubFilter]);
@@ -728,7 +729,7 @@ const ResultsTable = ({
                             className={`filter-list-item ${estadoSubFilter === 'pagado' ? 'active-mobile' : ''}`}
                             onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
                         >
-                            Pagado
+                            Cobrado
                         </div>
                     )}
                 </div>
@@ -1340,6 +1341,11 @@ const ResultsTable = ({
                     </h3>
                     <span className="results-count">
                         {groupedData.length} presupuesto{groupedData.length !== 1 ? 's' : ''} encontrado{groupedData.length !== 1 ? 's' : ''}
+                        {searchCriteria && searchCriteria.fechaDesde && searchCriteria.fechaHasta && (
+                            <span className="date-range-info" style={{ marginLeft: '8px', opacity: 0.8, fontWeight: '500' }}>
+                                ({new Date(searchCriteria.fechaDesde + 'T00:00:00').toLocaleDateString('es-AR')} - {new Date(searchCriteria.fechaHasta + 'T00:00:00').toLocaleDateString('es-AR')})
+                            </span>
+                        )}
                     </span>
                 </div>
                 <div className="table-actions">
@@ -1401,6 +1407,66 @@ const ResultsTable = ({
                 <FaEye className="help-icon" />
                 <span>Haz clic en los presupuestos para expandir/contraer. Haz clic en las cargas o en el icono del ojo para ver detalles.</span>
             </div>
+
+            {/* Subtotales y Totales al Principio */}
+            {(subtotals.ARS > 0 || subtotals.USD > 0) && (
+                <div className="top-totals-container animate-fade-in">
+                    <div className="top-totals-grid">
+                        <div className="top-total-item subtotals-by-currency">
+                            <span className="top-total-label">SUBTOTAL POR MONEDA</span>
+                            <div className="top-total-values">
+                                {subtotals.ARS > 0 && (
+                                    <div className="top-total-value">
+                                        {formatMonto(subtotals.ARS, 'ARS')}
+                                    </div>
+                                )}
+                                {subtotals.USD > 0 && (
+                                    <div className="top-total-value">
+                                        {formatMonto(subtotals.USD, 'USD')}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="top-total-item consolidated-total">
+                            <div className="total-label-with-selector">
+                                <span className="top-total-label">TOTAL CONSOLIDADO</span>
+                                <div className="currency-selector-mini glass">
+                                    <button 
+                                        className={`currency-btn-mini ${displayCurrency === 'ARS' ? 'active' : ''}`}
+                                        onClick={() => setDisplayCurrency('ARS')}
+                                    >
+                                        ARS
+                                    </button>
+                                    <button 
+                                        className={`currency-btn-mini ${displayCurrency === 'USD_BNA' ? 'active' : ''}`}
+                                        onClick={() => setDisplayCurrency('USD_BNA')}
+                                    >
+                                        USD BNA
+                                    </button>
+                                    <button 
+                                        className={`currency-btn-mini ${displayCurrency === 'USD_SII' ? 'active' : ''}`}
+                                        onClick={() => setDisplayCurrency('USD_SII')}
+                                    >
+                                        USD SII
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="top-total-value-main">
+                                {displayCurrency === 'ARS' 
+                                    ? formatMonto(subtotals.totalConsolidated, 'ARS') 
+                                    : formatMonto(subtotals.totalConsolidated, displayCurrency === 'USD_BNA' ? 'USD (BNA)' : 'USD (SII)')
+                                }
+                                {displayCurrency !== 'ARS' && (
+                                    <span className="top-total-rate">
+                                        (T/C: ${displayCurrency === 'USD_BNA' ? exchangeRate : chileExchangeRate})
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Tabla jerárquica / Vista de Tarjetas Móvil */}
             {isMobile && (
@@ -1533,7 +1599,7 @@ const ResultsTable = ({
                                                     className={`dropdown-item ${estadoSubFilter === 'pagado' ? 'active' : ''}`}
                                                     onClick={() => { setEstadoSubFilter('pagado'); setShowEstadoModal(false); }}
                                                 >
-                                                    Pagado
+                                                    Cobrado
                                                 </div>
                                             )}
                                         </div>
@@ -1697,78 +1763,6 @@ const ResultsTable = ({
                                 );
                             })}
                         </tbody>
-                        {(subtotals.ARS > 0 || subtotals.USD > 0) && (
-                            <tfoot className="subtotal-footer">
-                                <tr className="subtotal-row">
-                                    <td colSpan="2" style={{ textAlign: 'right', paddingRight: '2rem' }}>
-                                        <div className="subtotal-label-wrapper">
-                                            <span className="subtotal-label">SUBTOTAL POR MONEDA:</span>
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '2.5rem' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                            {subtotals.ARS > 0 && (
-                                                <div className="subtotal-monto text-white">
-                                                    {formatMonto(subtotals.ARS, 'ARS')}
-                                                </div>
-                                            )}
-                                            {subtotals.USD > 0 && (
-                                                <div className="subtotal-monto text-white">
-                                                    {formatMonto(subtotals.USD, 'USD')}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr className="total-consolidado-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                    <td colSpan="2" style={{ textAlign: 'right', paddingRight: '2rem', paddingTop: '1.5rem' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                            <span className="total-label" style={{ fontWeight: '800', color: 'var(--primary-light)', fontSize: '0.9rem' }}>
-                                                TOTAL CONSOLIDADO:
-                                            </span>
-                                            {/* Selector de Moneda integrado similar a Analítica */}
-                                            <div className="currency-selector-mini glass">
-                                                <button 
-                                                    className={`currency-btn-mini ${displayCurrency === 'ARS' ? 'active' : ''}`}
-                                                    onClick={() => setDisplayCurrency('ARS')}
-                                                >
-                                                    ARS
-                                                </button>
-                                                <button 
-                                                    className={`currency-btn-mini ${displayCurrency === 'USD_BNA' ? 'active' : ''}`}
-                                                    onClick={() => setDisplayCurrency('USD_BNA')}
-                                                >
-                                                    USD BNA
-                                                </button>
-                                                <button 
-                                                    className={`currency-btn-mini ${displayCurrency === 'USD_SII' ? 'active' : ''}`}
-                                                    onClick={() => setDisplayCurrency('USD_SII')}
-                                                >
-                                                    USD SII
-                                                </button>
-                                            </div>
-                                            {displayCurrency !== 'ARS' && (
-                                                <div className="exchange-rate-info-mini animate-fade-in" style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '600', marginTop: '4px' }}>
-                                                    {displayCurrency === 'USD_BNA' ? (
-                                                        <span>T/C BNA: ${exchangeRate.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-                                                    ) : (
-                                                        <span>T/C SII: ${chileExchangeRate.toLocaleString('es-CL', { minimumFractionDigits: 2 })}</span>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'right', paddingRight: '2.5rem', paddingTop: '1.5rem', verticalAlign: 'bottom' }}>
-                                        <div className="total-monto font-black">
-                                            {displayCurrency === 'ARS' 
-                                                ? formatMonto(subtotals.totalConsolidated, 'ARS') 
-                                                : formatMonto(subtotals.totalConsolidated, displayCurrency === 'USD_BNA' ? 'USD (BNA)' : 'USD (SII)')
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        )}
                     </table>
                 </div>
             )}

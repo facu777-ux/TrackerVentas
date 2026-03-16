@@ -216,10 +216,117 @@
   background-color: var(--bg-accents-1);
 }
 
-/* Subtotales en Footer */
+/* Subtotales y Totales al Principio */
+.top-totals-container {
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--primary-rgb), 0.02) 100%);
+  border-bottom: 1px solid var(--border-primary);
+  padding: 1.5rem;
+  margin-bottom: 0;
+}
+
+.top-totals-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.top-total-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.top-total-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.top-total-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.top-total-value {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.consolidated-total {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.total-label-with-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.top-total-value-main {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--primary-color);
+  font-family: var(--font-mono, monospace);
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.top-total-rate {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.date-range-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: 4px;
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .top-totals-grid {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+  
+  .consolidated-total {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 1rem;
+  }
+  
+  .total-label-with-selector {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .top-total-value-main {
+    align-items: flex-start;
+    font-size: 1.75rem;
+  }
+}
+
 .subtotal-footer {
-  border-top: 1px solid var(--border-primary);
-  background-color: rgba(var(--primary-rgb), 0.05);
+  display: none; /* Ocultamos el antiguo footer */
 }
 
 .subtotal-row td {

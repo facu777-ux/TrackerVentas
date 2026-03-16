@@ -4,15 +4,20 @@ import { seguimientoAPI } from '../services/api';
 import './SearchFilters.css';
 
 const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar }) => {
-  // Calcular fecha de hace 6 meses para el valor por defecto
-  const seisMesesAtras = new Date();
-  seisMesesAtras.setMonth(seisMesesAtras.getMonth() - 6);
-  const fechaDefecto = seisMesesAtras.toISOString().split('T')[0];
+  // Calcular fecha de hace 60 días para el valor por defecto
+  const sesentaDiasAtras = new Date();
+  sesentaDiasAtras.setDate(sesentaDiasAtras.getDate() - 60);
+  const fechaDefecto = sesentaDiasAtras.toISOString().split('T')[0];
+
+  // Calcular fecha de mañana para el límite superior
+  const mañana = new Date();
+  mañana.setDate(mañana.getDate() + 1);
+  const fechaHastaDefecto = mañana.toISOString().split('T')[0];
 
   const [filters, setFilters] = useState({
-    empresa: '',
+    empresa: 'DIBIAG',
     fechaDesde: fechaDefecto,
-    fechaHasta: new Date().toISOString().split('T')[0],
+    fechaHasta: fechaHastaDefecto,
     cliente: '',
     nroPR: '',
     limit: 100
@@ -47,7 +52,13 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
     try {
       const response = await seguimientoAPI.obtenerEmpresas();
       if (response.success) {
-        setEmpresas(response.data);
+        // Ordenar para que DIBIAG aparezca primero
+        const ordenadas = response.data.sort((a, b) => {
+          if (a.Codigo === 'DIBIAG') return -1;
+          if (b.Codigo === 'DIBIAG') return 1;
+          return a.Nombre.localeCompare(b.Nombre);
+        });
+        setEmpresas(ordenadas);
       }
     } catch (error) {
       console.error('Error al cargar empresas:', error);
@@ -109,10 +120,18 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
   };
 
   const handleReset = () => {
+    const sesentaDiasAtras = new Date();
+    sesentaDiasAtras.setDate(sesentaDiasAtras.getDate() - 60);
+    const fechaDefecto = sesentaDiasAtras.toISOString().split('T')[0];
+    
+    const mañana = new Date();
+    mañana.setDate(mañana.getDate() + 1);
+    const fechaHastaDefecto = mañana.toISOString().split('T')[0];
+
     const resetFilters = {
-      empresa: '',
+      empresa: 'DIBIAG',
       fechaDesde: fechaDefecto,
-      fechaHasta: new Date().toISOString().split('T')[0],
+      fechaHasta: fechaHastaDefecto,
       cliente: '',
       nroPR: '',
       limit: 100
