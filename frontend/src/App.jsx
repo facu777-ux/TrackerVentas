@@ -683,7 +683,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="analytics-content-transitions" style={{ position: 'relative', overflow: 'hidden' }}>
+                  <div className="analytics-content-transitions" style={{ position: 'relative', overflow: 'visible' }}>
                     <AnimatePresence mode="wait">
                       {analyticsSubView === 'overview' ? (
                         <motion.div 

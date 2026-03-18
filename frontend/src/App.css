@@ -207,7 +207,8 @@
 .help-tooltip {
     position: absolute;
     bottom: calc(100% + 10px);
-    right: 0;
+    right: 50%;
+    transform: translateX(50%) translateY(10px);
     width: 250px;
     background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(8px);
@@ -222,12 +223,8 @@
     opacity: 0;
     pointer-events: none;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateY(10px);
     z-index: 11000 !important;
-    text-align: left;
-    /* Asegurar que no se salga por la izquierda */
-    left: auto;
-    right: -100px; /* Desplazamos un poco a la derecha si es necesario */
+    text-align: center;
 }
 
 /* Variantes de posición para evitar clipping en los bordes */
@@ -235,12 +232,31 @@
 .kpi-card:first-child .help-tooltip {
     right: auto;
     left: 0;
+    transform: translateX(0) translateY(10px);
+    text-align: left;
+}
+
+.stat-card:last-child .help-tooltip,
+.kpi-card:last-child .help-tooltip,
+.chart-card:last-child .help-tooltip {
+    right: 0;
+    left: auto;
+    transform: translateX(0) translateY(10px);
+    text-align: left;
 }
 
 .help-icon-wrapper:hover .help-tooltip {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translateX(50%);
     pointer-events: auto;
+}
+
+.stat-card:first-child .help-icon-wrapper:hover .help-tooltip,
+.kpi-card:first-child .help-icon-wrapper:hover .help-tooltip,
+.stat-card:last-child .help-icon-wrapper:hover .help-tooltip,
+.kpi-card:last-child .help-icon-wrapper:hover .help-tooltip,
+.chart-card:last-child .help-icon-wrapper:hover .help-tooltip {
+    transform: translateY(0) translateX(0);
 }
 
 [data-theme='light'] .help-tooltip {
