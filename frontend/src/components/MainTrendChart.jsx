@@ -118,7 +118,7 @@ const MainTrendChart = ({ data, displayCurrency = 'ARS', exchangeRate = 1000, ch
                             <span className="dot" style={{ background: entry.color }}></span>
                             <span className="label text-xs">{entry.name} ({entry.payload[`count${entry.name}`]}):</span>
                         </div>
-                        <span className="value text-xs">{new Intl.NumberFormat('es-AR', { style: 'currency', currency: displayCurrency }).format(entry.value)}</span>
+                        <span className="value text-xs">{new Intl.NumberFormat('es-AR', { style: 'currency', currency: displayCurrency === 'ARS' ? 'ARS' : 'USD' }).format(entry.value)}</span>
                     </div>
                 ))}
                 <div className="tooltip-divider"></div>
