@@ -976,6 +976,11 @@ const ResultsTable = ({
             'Precio Unitario': item.Precio || 0,
             'Total Item': item.TotalItem || 0,
             'Moneda': item.Moneda || 'ARS',
+            'Tramo': (item.LocalizacionCargaOP || item.LocalizacionEntregaOP) 
+                ? `${item.LocalizacionCargaOP || '-'} -> ${item.LocalizacionEntregaOP || '-'}` 
+                : '-',
+            'Remitente': item.RemitenteOP || '-',
+            'Destinatario': item.DestinatarioOP || '-',
             'Código Carga': item.CodigoCarga || '-',
             'Cliente a Facturar': item.ClienteAFacturar || '-',
             'Nro CRT': item.NroCRT || '-',

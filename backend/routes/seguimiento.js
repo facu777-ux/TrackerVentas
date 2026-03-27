@@ -4,19 +4,19 @@ const { getConnection, sql } = require("../config/database");
 
 // POST /api/seguimiento - Consulta de seguimiento con filtros
 router.post("/", async (req, res) => {
-  try {
-    const {
-      empresa = null,
-      fechaDesde = "2024-01-01",
-      fechaHasta = "2100-12-31",
-      cliente = null,
-      nroPR = null,
-      limit = 100,
-    } = req.body;
+    try {
+        const {
+            empresa = null,
+            fechaDesde = "2024-01-01",
+            fechaHasta = "2100-12-31",
+            cliente = null,
+            nroPR = null,
+            limit = 100,
+        } = req.body;
 
-    const pool = await getConnection();
+        const pool = await getConnection();
 
-    const query = `
+        const query = `
             /*==============================================================================
               CONSULTA OPTIMIZADA CON VISIBILIDAD TOTAL
               Trazabilidad Completa: SOLBOT -> PR -> CARGA -> Factura -> Recibo Cobranza
@@ -102,7 +102,9 @@ router.post("/", async (req, res) => {
                     Else 'No especificado'
                 End as TipoOperacion,
                 vta.VTMCLH_NOMBRE AS RemitenteOP,
+                vta.VTMCLH_DIRECC AS DireccionRemitente,
                 vtb.VTMCLH_NOMBRE AS DestinatarioOP,
+                vtb.VTMCLH_DIRECC AS DireccionDestinatario,
                 gt.USR_GTMVIH_FCHCAR AS FechaCarga,
                 gt.USR_GTMVIH_FCHENT AS FechaEntrega,
                 locA.USR_GTTLOH_DESCRP AS LocalizacionCargaOP,
@@ -134,12 +136,12 @@ router.post("/", async (req, res) => {
                     ON i.USR_GTMVII_CODEMP = f.FCRMVH_CODEMP
                     AND i.USR_GTMVII_CODFAC = f.FCRMVH_CODFOR
                     AND i.USR_GTMVII_NROFAC = f.FCRMVH_NROFOR
-                -- JOINs para nombres y localizaciones con NOLOCK
-                INNER JOIN VTMCLH vta WITH (NOLOCK) ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
-                INNER JOIN VTMCLH vtb WITH (NOLOCK) ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
-                INNER JOIN VTMCLH vtc WITH (NOLOCK) ON i.USR_GTMVII_CLIENT = vtc.VTMCLH_NROCTA
-                INNER JOIN USR_GTTLOH locA WITH (NOLOCK) ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
-                INNER JOIN USR_GTTLOH locB WITH (NOLOCK) ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
+                -- JOINs para nombres y localizaciones con LEFT JOIN para seguridad
+                LEFT JOIN VTMCLH vta WITH (NOLOCK) ON gt.USR_GTMVIH_REMITE = vta.VTMCLH_NROCTA
+                LEFT JOIN VTMCLH vtb WITH (NOLOCK) ON gt.USR_GTMVIH_DESTIN = vtb.VTMCLH_NROCTA
+                LEFT JOIN VTMCLH vtc WITH (NOLOCK) ON i.USR_GTMVII_CLIENT = vtc.VTMCLH_NROCTA
+                LEFT JOIN USR_GTTLOH locA WITH (NOLOCK) ON gt.USR_GTMVIH_LOCINI = locA.USR_GTTLOH_CODIGO
+                LEFT JOIN USR_GTTLOH locB WITH (NOLOCK) ON gt.USR_GTMVIH_LOCENT = locB.USR_GTTLOH_CODIGO
             WHERE 
                 gt.USR_GTMVIH_CODFOR = 'PR'
                 AND EXISTS (
@@ -214,6 +216,8 @@ router.post("/", async (req, res) => {
                 pr.FCRMVH_FECALT AS FchAltaRegistro,
                 cl.VTMCLH_NROCTA AS CodCliente,
                 ISNULL(gt.NomClientFacturar, cl.VTMCLH_NOMBRE) AS NomCliente,
+                cl.VTMCLH_CNDPAG as [CndPagCliente],
+                
                 pr.USR_FCRMVH_CONTAC AS ContactoDeCliente,
                 pr.FCRMVH_TEXTOS AS ObservacionesPR,
                 pr.USR_FCRMVH_DESVIAJ AS DescrpViaj,
@@ -260,6 +264,8 @@ router.post("/", async (req, res) => {
                 gt.LocalizacionEntregaOP,
                 gt.DomicilioCarga,
                 gt.DomicilioDescarga,
+                gt.DireccionRemitente,
+                gt.DireccionDestinatario,
                 
                 -- DATOS DE FACTURA (puede ser NULL si carga sin factura)
                 CASE 
@@ -281,8 +287,8 @@ router.post("/", async (req, res) => {
                     ON sol.EmpresaSolicitud = pr.FCRMVH_CODEMP
                     AND sol.NroSolicitud = pr.SolicitudAplica
                 
-                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas para no perder items agregados en carga
-                CROSS APPLY (
+                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas (OUTER APPLY para no perder cabeceras)
+                OUTER APPLY (
                     SELECT FCRMVI_NROITM AS NroItm FROM FCRMVI i2 WITH (NOLOCK)
                     WHERE pr.FCRMVH_CODFOR = i2.FCRMVI_CODFOR AND pr.FCRMVH_NROFOR = i2.FCRMVI_NROFOR AND pr.FCRMVH_CODEMP = i2.FCRMVI_CODEMP
                     UNION
@@ -319,7 +325,13 @@ router.post("/", async (req, res) => {
                     ON gt.EmpreI = rc.EmpRC
                     AND gt.CodFac = rc.CodFact
                     AND gt.NroFac = rc.NroFact
-            WHERE (@ClienteFiltro IS NULL OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%')
+            WHERE (@ClienteFiltro IS NULL 
+                   OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' 
+                   OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' 
+                   OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%'
+                   -- Búsqueda robusta por si el join a cl falló o hay espacios
+                   OR EXISTS (SELECT 1 FROM VTMCLH cl2 WHERE cl2.VTMCLH_NROCTA = pr.FCRMVH_NROCTA AND cl2.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
+                )
 
             -- Agregar PRs que NO tienen solicitud (creados directamente)
             UNION ALL
@@ -347,6 +359,7 @@ router.post("/", async (req, res) => {
                 pr.FCRMVH_FECALT,
                 pr.FCRMVH_NROCTA,
                 ISNULL(gt.NomClientFacturar, cl.VTMCLH_NOMBRE) AS NomCliente,
+                cl.VTMCLH_CNDPAG AS [CndPagCliente],
                 pr.USR_FCRMVH_CONTAC,
                 pr.FCRMVH_TEXTOS,
                 pr.USR_FCRMVH_DESVIAJ,
@@ -392,6 +405,8 @@ router.post("/", async (req, res) => {
                 gt.LocalizacionEntregaOP,
                 gt.DomicilioCarga,
                 gt.DomicilioDescarga,
+                gt.DireccionRemitente,
+                gt.DireccionDestinatario,
                 
                 -- DATOS DE FACTURA
                 CASE 
@@ -413,8 +428,8 @@ router.post("/", async (req, res) => {
                     ON pr.FCRMVH_CODEMP = sol.EmpresaSolicitud
                     AND pr.SolicitudAplica = sol.NroSolicitud
                 
-                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas
-                CROSS APPLY (
+                -- LÓGICA DE ITEMS: UNION FCRMVI + #Cargas (OUTER APPLY para no perder cabeceras)
+                OUTER APPLY (
                     SELECT FCRMVI_NROITM AS NroItm FROM FCRMVI i2 WITH (NOLOCK)
                     WHERE pr.FCRMVH_CODFOR = i2.FCRMVI_CODFOR AND pr.FCRMVH_NROFOR = i2.FCRMVI_NROFOR AND pr.FCRMVH_CODEMP = i2.FCRMVI_CODEMP
                     UNION
@@ -453,7 +468,13 @@ router.post("/", async (req, res) => {
                     AND gt.NroFac = rc.NroFact
                     
             WHERE sol.NroSolicitud IS NULL
-                AND (@ClienteFiltro IS NULL OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%')
+                AND (@ClienteFiltro IS NULL 
+                     OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' 
+                     OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' 
+                     OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%'
+                     -- Búsqueda robusta por si el join a cl falló o hay espacios
+                     OR EXISTS (SELECT 1 FROM VTMCLH cl2 WHERE cl2.VTMCLH_NROCTA = pr.FCRMVH_NROCTA AND cl2.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
+                    )
 
             ORDER BY 
                 FecAltCarga DESC,
@@ -472,71 +493,71 @@ router.post("/", async (req, res) => {
             DROP TABLE #Recibos;
         `;
 
-    const result = await pool
-      .request()
-      .input("EmpresaFiltro", sql.VarChar(10), empresa)
-      .input("FechaDesde", sql.Date, fechaDesde)
-      .input("FechaHasta", sql.Date, fechaHasta)
-      .input("ClienteFiltro", sql.VarChar(100), cliente)
-      .input("NroPRFiltro", sql.BigInt, nroPR)
-      .input("Limit", sql.Int, limit)
-      .query(query);
+        const result = await pool
+            .request()
+            .input("EmpresaFiltro", sql.VarChar(10), empresa)
+            .input("FechaDesde", sql.Date, fechaDesde)
+            .input("FechaHasta", sql.Date, fechaHasta)
+            .input("ClienteFiltro", sql.VarChar(100), cliente)
+            .input("NroPRFiltro", sql.BigInt, nroPR)
+            .input("Limit", sql.Int, limit)
+            .query(query);
 
-    res.json({
-      success: true,
-      data: result.recordset,
-      count: result.recordset.length,
-      filters: {
-        empresa,
-        fechaDesde,
-        fechaHasta,
-        cliente,
-        nroPR,
-      },
-    });
-  } catch (error) {
-    console.error("Error en consulta de seguimiento:", error);
-    res.status(500).json({
-      success: false,
-      error: "Error al ejecutar la consulta",
-      message: error.message,
-    });
-  }
+        res.json({
+            success: true,
+            data: result.recordset,
+            count: result.recordset.length,
+            filters: {
+                empresa,
+                fechaDesde,
+                fechaHasta,
+                cliente,
+                nroPR,
+            },
+        });
+    } catch (error) {
+        console.error("Error en consulta de seguimiento:", error);
+        res.status(500).json({
+            success: false,
+            error: "Error al ejecutar la consulta",
+            message: error.message,
+        });
+    }
 });
 
 // GET /api/seguimiento/empresas - Obtener lista de empresas
 router.get("/empresas", async (req, res) => {
-  try {
-    const pool = await getConnection();
-    const result = await pool.request().query(`
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query(`
             SELECT DISTINCT FCRMVH_CODEMP AS Codigo, FCRMVH_CODEMP AS Nombre
             FROM FCRMVH WITH (NOLOCK)
             WHERE FCRMVH_CODEMP IS NOT NULL
             ORDER BY FCRMVH_CODEMP
         `);
 
-    res.json({
-      success: true,
-      data: result.recordset,
-    });
-  } catch (error) {
-    console.error("Error al obtener empresas:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
+        res.json({
+            success: true,
+            data: result.recordset,
+        });
+    } catch (error) {
+        console.error("Error al obtener empresas:", error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
 });
 
 // GET /api/seguimiento/clientes - Buscar clientes
 router.get("/clientes", async (req, res) => {
-  try {
-    const { search = "" } = req.query;
-    const pool = await getConnection();
+    try {
+        const { search = "" } = req.query;
+        const pool = await getConnection();
 
-    const result = await pool
-      .request()
-      .input("Search", sql.VarChar(100), `%${search}%`).query(`
+        const result = await pool
+            .request()
+            .input("Search", sql.VarChar(100), `%${search}%`).query(`
                 SELECT TOP 20 
                     VTMCLH_NROCTA AS Codigo,
                     VTMCLH_NOMBRE AS Nombre
@@ -546,17 +567,17 @@ router.get("/clientes", async (req, res) => {
                 ORDER BY VTMCLH_NOMBRE
             `);
 
-    res.json({
-      success: true,
-      data: result.recordset,
-    });
-  } catch (error) {
-    console.error("Error al obtener clientes:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
+        res.json({
+            success: true,
+            data: result.recordset,
+        });
+    } catch (error) {
+        console.error("Error al obtener clientes:", error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
 });
 
 module.exports = router;

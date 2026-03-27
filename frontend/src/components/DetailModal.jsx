@@ -14,7 +14,10 @@ import {
     FaChevronLeft,
     FaChevronRight,
     FaListUl,
-    FaCashRegister
+    FaCashRegister,
+    FaMapMarkerAlt,
+    FaArrowRight,
+    FaMapMarkedAlt
 } from 'react-icons/fa';
 import { format } from 'date-fns';
 import './DetailModal.css';
@@ -266,18 +269,44 @@ const DetailModal = ({ item, onClose, mode = 'all', onNext, onPrev, currentIndex
                     </div>
                 </div>
 
-                <div className="info-grid-simple">
-                    <div className="info-block">
-                        <h4 className="block-title"><FaBuilding /> Origen / Remitente</h4>
-                        <p><strong>Remitente:</strong> {item.RemitenteOP || '-'}</p>
-                        <p><strong>Localización:</strong> {item.LocalizacionCargaOP || '-'}</p>
-                        <p><strong>Domicilio:</strong> {item.DomicilioCarga || '-'}</p>
+                <div className="tramo-header">
+                    <h4 className="block-title" style={{ border: 'none', marginBottom: '0.25rem' }}><FaMapMarkedAlt /> Tramo del Viaje</h4>
+                </div>
+
+                <div className="tramo-visual-container animate-fade-in">
+                    <div className="tramo-node source">
+                        <div className="node-icon"><FaBuilding /></div>
+                        <div className="node-info">
+                            <span className="node-label">ORIGEN</span>
+                            <span className="node-value">{item.LocalizacionCargaOP || '-'}</span>
+                        </div>
                     </div>
+
+                    <div className="tramo-path">
+                        <div className="path-line"></div>
+                        <div className="path-truck"><FaTruck /></div>
+                        <FaArrowRight className="path-arrow" />
+                    </div>
+
+                    <div className="tramo-node destination">
+                        <div className="node-icon"><FaMapMarkerAlt /></div>
+                        <div className="node-info" style={{ textAlign: 'right' }}>
+                            <span className="node-label">DESTINO</span>
+                            <span className="node-value">{item.LocalizacionEntregaOP || '-'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="info-grid-simple" style={{ marginTop: '1rem' }}>
                     <div className="info-block">
-                        <h4 className="block-title"><FaBuilding /> Destino / Entrega</h4>
+                        <h4 className="block-title" style={{ fontSize: '0.8rem', opacity: 0.8 }}><FaUser /> Datos de Origen</h4>
+                        <p><strong>Remitente:</strong> {item.RemitenteOP || '-'}</p>
+                        <p><strong>Domicilio:</strong> {item.DireccionRemitente || item.DomicilioCarga || '-'}</p>
+                    </div>
+                    <div className="info-block" style={{ borderLeft: '1px solid var(--glass-border)', paddingLeft: '2rem' }}>
+                        <h4 className="block-title" style={{ fontSize: '0.8rem', opacity: 0.8 }}><FaUser /> Datos de Destino</h4>
                         <p><strong>Destinatario:</strong> {item.DestinatarioOP || '-'}</p>
-                        <p><strong>Localización:</strong> {item.LocalizacionEntregaOP || '-'}</p>
-                        <p><strong>Domicilio:</strong> {item.DomicilioDescarga || '-'}</p>
+                        <p><strong>Domicilio:</strong> {item.DireccionDestinatario || item.DomicilioDescarga || '-'}</p>
                     </div>
                 </div>
 
