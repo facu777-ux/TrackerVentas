@@ -20,10 +20,17 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
     fechaHasta: fechaHastaDefecto,
     cliente: '',
     nroPR: '',
+    nroFactura: '',
+    facturaTipo: '',
+    puntoVenta: '',
+    nroCarga: '',
+    nroRC: '',
     limit: 100
   });
 
   const [empresas, setEmpresas] = useState([]);
+  const [puntosVenta, setPuntosVenta] = useState([]);
+  const [loadingPuntosVenta, setLoadingPuntosVenta] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Estados para autocompletado de clientes
@@ -32,9 +39,11 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
   const [loadingClientes, setLoadingClientes] = useState(false);
   const searchTimeoutRef = useRef(null);
   const wrapperRef = useRef(null);
+  const pointsWarningLoggedRef = useRef(false);
 
   useEffect(() => {
     cargarEmpresas();
+    cargarPuntosVenta();
 
     // Click outside handler para cerrar sugerencias
     function handleClickOutside(event) {
@@ -65,12 +74,54 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
     }
   };
 
+  const cargarPuntosVenta = async () => {
+    try {
+      setLoadingPuntosVenta(true);
+      const response = await seguimientoAPI.obtenerPuntosVenta();
+      if (Array.isArray(response?.data)) {
+        // Precarga completa para que el selector siempre tenga el catálogo recibido por API.
+        const ordered = [...response.data].sort((a, b) =>
+          String(a?.sucursalId || '').localeCompare(String(b?.sucursalId || ''), undefined, { numeric: true })
+        );
+        setPuntosVenta(ordered);
+      }
+
+      if (!response?.success) {
+        if (!pointsWarningLoggedRef.current) {
+          console.warn('Puntos de venta cargados con advertencia:', response?.warning || 'sin detalle');
+          pointsWarningLoggedRef.current = true;
+        }
+      }
+    } catch (error) {
+      if (!pointsWarningLoggedRef.current) {
+        console.error('Error al cargar puntos de venta:', error);
+        pointsWarningLoggedRef.current = true;
+      }
+    } finally {
+      setLoadingPuntosVenta(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'facturaTipo') {
+      const normalizedType = String(value || '').toUpperCase();
+      setFilters(prev => ({
+        ...prev,
+        facturaTipo: normalizedType,
+        puntoVenta: normalizedType === 'E' ? '9996' : prev.puntoVenta
+      }));
+    } else if (name === 'puntoVenta') {
+      setFilters(prev => ({
+        ...prev,
+        puntoVenta: prev.facturaTipo === 'E' ? '9996' : value
+      }));
+    } else {
+      setFilters(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
 
     // Lógica específica para búsqueda de clientes
     if (name === 'cliente') {
@@ -204,7 +255,14 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
       ...filters,
       empresa: filters.empresa || null,
       cliente: filters.cliente || null,
-      nroPR: filters.nroPR ? parseInt(filters.nroPR) : null
+      nroPR: filters.nroPR ? parseInt(filters.nroPR) : null,
+      nroFactura: filters.nroFactura ? parseInt(filters.nroFactura) : null,
+      facturaTipo: filters.facturaTipo || null,
+      puntoVenta: filters.facturaTipo === 'E'
+        ? '9996'
+        : (filters.puntoVenta ? String(filters.puntoVenta).replace(/\D/g, '') : null),
+      nroCarga: filters.nroCarga ? parseInt(filters.nroCarga) : null,
+      nroRC: filters.nroRC ? parseInt(filters.nroRC) : null
     };
     onSearch(filtrosLimpios);
   };
@@ -224,11 +282,68 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
       fechaHasta: fechaHastaDefecto,
       cliente: '',
       nroPR: '',
+      nroFactura: '',
+      facturaTipo: '',
+      puntoVenta: '',
+      nroCarga: '',
+      nroRC: '',
       limit: 100
     };
     setFilters(resetFilters);
     setSugerenciasClientes([]);
   };
+
+  const renderFacturaExtras = () => (
+    <>
+      <div className="filter-group">
+        <label htmlFor="facturaTipo">
+          <FaFileAlt className="label-icon" />
+          Tipo de Factura
+        </label>
+        <select
+          id="facturaTipo"
+          name="facturaTipo"
+          value={filters.facturaTipo}
+          onChange={handleChange}
+          className="filter-input"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="A">Factura A</option>
+          <option value="B">Factura B</option>
+          <option value="E">Factura E</option>
+        </select>
+      </div>
+
+      <div className="filter-group">
+        <label htmlFor="puntoVenta">
+          <FaFileAlt className="label-icon" />
+          Punto de Venta
+        </label>
+        <select
+          id="puntoVenta"
+          name="puntoVenta"
+          value={filters.puntoVenta}
+          onChange={handleChange}
+          className="filter-input"
+          disabled={loadingPuntosVenta || filters.facturaTipo === 'E'}
+        >
+          <option value="">Todos los puntos</option>
+          {puntosVenta.map((pv) => (
+            <option key={`${pv.empresaId}-${pv.sucursalId}`} value={pv.sucursalId || ''}>
+              {pv.label || pv.descripcion || pv.sucursalId}
+            </option>
+          ))}
+        </select>
+        <small className="filter-helper-text">
+          {loadingPuntosVenta
+            ? 'Cargando puntos de venta...'
+            : (puntosVenta.length > 0
+              ? `${puntosVenta.length} puntos de venta precargados`
+              : 'Sin puntos de venta disponibles')}
+        </small>
+      </div>
+    </>
+  );
 
   return (
     <div className="search-filters-container">
@@ -249,20 +364,149 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
         </div>
       )}
 
-      {hideTitle && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <button
-            type="button"
-            className="toggle-advanced-btn"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
-            {showAdvanced ? <FaChevronUp style={{ marginLeft: '8px' }} /> : <FaChevronDown style={{ marginLeft: '8px' }} />}
-          </button>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="filters-form">
+        {/* Botón toggle para modo sidebar — aparece al tope del form */}
+        {hideTitle && (
+          <div style={{ marginBottom: '1rem' }}>
+            <button
+              type="button"
+              className={`toggle-advanced-btn ${showAdvanced ? 'is-open' : ''}`}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? 'Ocultar Avanzados' : 'Mostrar Avanzados'}
+              <FaChevronDown style={{ marginLeft: '8px' }} />
+            </button>
+          </div>
+        )}
+
+        {/* Filtros Avanzados — en sidebar aparecen justo bajo el botón */}
+        {hideTitle && showAdvanced && (
+          <div className={`filters-row advanced-filters slide-in ${isInSidebar ? 'sidebar-filters-row' : ''}`}>
+            <div className="filter-group" ref={wrapperRef} style={{ position: 'relative' }}>
+              <label htmlFor="cliente">
+                <FaUser className="label-icon" />
+                Cliente
+              </label>
+              <div className="input-with-icon">
+                <input
+                  type="text"
+                  id="cliente"
+                  name="cliente"
+                  value={filters.cliente}
+                  onChange={handleChange}
+                  className="filter-input"
+                  placeholder="Buscar cliente..."
+                  autoComplete="off"
+                />
+                <FaSearch className="input-icon-right" />
+              </div>
+
+              {/* Dropdown de Sugerencias */}
+              {showSugerencias && sugerenciasClientes.length > 0 && (
+                <ul className="suggestions-list">
+                  {sugerenciasClientes.map((cliente) => (
+                    <li
+                      key={cliente.Codigo}
+                      onClick={() => seleccionarCliente(cliente)}
+                      className="suggestion-item"
+                    >
+                      <span className="suggestion-name">{cliente.Nombre}</span>
+                      <span className="suggestion-code">{cliente.Codigo}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="nroPR">
+                <FaFileAlt className="label-icon" />
+                Número de PR
+              </label>
+              <input
+                type="number"
+                id="nroPR"
+                name="nroPR"
+                value={filters.nroPR}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de presupuesto"
+              />
+            </div>
+
+            {renderFacturaExtras()}
+
+            <div className="filter-group">
+              <label htmlFor="nroFactura">
+                <FaFileAlt className="label-icon" />
+                Número de Factura
+              </label>
+              <input
+                type="number"
+                id="nroFactura"
+                name="nroFactura"
+                value={filters.nroFactura}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de factura"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="nroCarga">
+                <FaFileAlt className="label-icon" />
+                Número de Carga
+              </label>
+              <input
+                type="number"
+                id="nroCarga"
+                name="nroCarga"
+                value={filters.nroCarga}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de carga"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="nroRC">
+                <FaFileAlt className="label-icon" />
+                Nº Recibo de Cobranza
+              </label>
+              <input
+                type="number"
+                id="nroRC"
+                name="nroRC"
+                value={filters.nroRC}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de recibo"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="limit">
+                <FaFileAlt className="label-icon" />
+                Límite de resultados
+              </label>
+              <select
+                id="limit"
+                name="limit"
+                value={filters.limit}
+                onChange={handleChange}
+                className="filter-input"
+              >
+                <option value="50">50 registros</option>
+                <option value="100">100 registros</option>
+                <option value="250">250 registros</option>
+                <option value="500">500 registros</option>
+                <option value="1000">1000 registros</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Filtros Principales */}
         <div className={`filters-row ${isInSidebar ? 'sidebar-filters-row' : ''}`}>
           <div className="filter-group">
@@ -333,8 +577,8 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
           </div>
         </div>
 
-        {/* Filtros Avanzados */}
-        {showAdvanced && (
+        {/* Filtros Avanzados — en modo no-sidebar aparecen tras el acceso rápido */}
+        {!hideTitle && showAdvanced && (
           <div className={`filters-row advanced-filters slide-in ${isInSidebar ? 'sidebar-filters-row' : ''}`}>
             <div className="filter-group" ref={wrapperRef} style={{ position: 'relative' }}>
               <label htmlFor="cliente">
@@ -385,6 +629,56 @@ const SearchFilters = ({ onSearch, loading, isCollapsed, hideTitle, isInSidebar 
                 onChange={handleChange}
                 className="filter-input"
                 placeholder="Número de presupuesto"
+              />
+            </div>
+
+            {renderFacturaExtras()}
+
+            <div className="filter-group">
+              <label htmlFor="nroFactura">
+                <FaFileAlt className="label-icon" />
+                Número de Factura
+              </label>
+              <input
+                type="number"
+                id="nroFactura"
+                name="nroFactura"
+                value={filters.nroFactura}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de factura"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="nroCarga">
+                <FaFileAlt className="label-icon" />
+                Número de Carga
+              </label>
+              <input
+                type="number"
+                id="nroCarga"
+                name="nroCarga"
+                value={filters.nroCarga}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de carga"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="nroRC">
+                <FaFileAlt className="label-icon" />
+                Nº Recibo de Cobranza
+              </label>
+              <input
+                type="number"
+                id="nroRC"
+                name="nroRC"
+                value={filters.nroRC}
+                onChange={handleChange}
+                className="filter-input"
+                placeholder="Número de recibo"
               />
             </div>
 

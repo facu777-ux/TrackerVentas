@@ -33,10 +33,18 @@
   position: sticky;
   top: 0;
   background-color: var(--bg-background);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-primary);
   padding: 0.75rem 0;
   z-index: 1000 !important;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .app-header {
+  background-color: rgba(2, 6, 23, 0.95);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .header-content {
@@ -584,6 +592,22 @@
   min-height: 120px;
 }
 
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #378ADD 0%, #1D9E75 100%);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+  z-index: 2;
+}
+
 .stat-card::after {
   content: "";
   position: absolute;
@@ -600,10 +624,14 @@
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(55, 138, 221, 0.12), var(--shadow-md);
   border-color: var(--primary-light);
   z-index: 3000 !important;
+}
+
+.stat-card:hover::before {
+  transform: scaleX(1);
 }
 
 .stat-card:hover::after {
@@ -1075,4 +1103,54 @@
 
 .analytics-content-transitions > div {
     width: 100%;
+}
+
+/* --- SISTEMA DE RESALTADO INTELIGENTE (AI ASSISTANT) --- */
+
+/* 1. Resaltado General (Se adapta a la forma del elemento) */
+.spotlight-highlight {
+  animation: spotlight-rect 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  position: relative;
+  z-index: 100 !important;
+  border-radius: inherit !important;
+}
+
+@keyframes spotlight-rect {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  20% { 
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.4);
+    background-color: rgba(59, 130, 246, 0.08);
+  }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+/* 2. Tratamiento especial para filas de tabla (Rectangulares) */
+tr.spotlight-highlight {
+  border-left: 5px solid #3b82f6 !important;
+}
+
+/* 3. Foco de precisión en Pasos del Proceso (Burbujas) */
+.highlight-target .table-timeline-circle {
+  border: 4px solid #3b82f6 !important;
+  transform: scale(1.3);
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+}
+
+.highlight-target .table-timeline-circle::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: pulse-circle-ai 1.5s infinite;
+}
+
+@keyframes pulse-circle-ai {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.7); }
 }

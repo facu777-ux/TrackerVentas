@@ -1,0 +1,7 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M50 20C33.4315 20 20 33.4315 20 50C20 66.5685 33.4315 80 50 80C66.5685 80 80 66.5685 80 50" stroke="currentColor" stroke-width="8" stroke-linecap="round" />
+  <path d="M35 50C35 41.7157 41.7157 35 50 35C58.2843 35 65 41.7157 65 50C65 58.2843 58.2843 65 50 65" stroke="currentColor" stroke-width="8" stroke-linecap="round" />
+  <circle cx="50" cy="50" r="8" fill="currentColor" />
+  <path d="M20 50C20 45 25 40 30 40" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+  <path d="M80 50C80 55 75 60 70 60" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+</svg>

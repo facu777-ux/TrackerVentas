@@ -11,8 +11,19 @@ router.post("/", async (req, res) => {
             fechaHasta = "2100-12-31",
             cliente = null,
             nroPR = null,
+            nroFactura = null,
+            nroCarga = null,
+            nroRC = null,
+            facturaTipo = null,
+            puntoVenta = null,
             limit = 100,
         } = req.body;
+
+        const normalizedFacturaTipo = facturaTipo ? String(facturaTipo).trim().toUpperCase() : null;
+        const requestedPuntoVenta = puntoVenta ? String(puntoVenta).replace(/\D/g, "") : null;
+        const normalizedPuntoVenta = normalizedFacturaTipo === "E" ? "9996" : requestedPuntoVenta;
+        const facturaTipoLike = normalizedFacturaTipo ? `%${normalizedFacturaTipo}%` : null;
+        const puntoVentaLike = normalizedPuntoVenta ? `%${normalizedPuntoVenta}%` : null;
 
         const pool = await getConnection();
 
@@ -33,7 +44,7 @@ router.post("/", async (req, res) => {
             -- =============================================================================
             IF OBJECT_ID('tempdb..#Solicitudes') IS NOT NULL DROP TABLE #Solicitudes;
 
-            SELECT 
+            SELECT
                 b.USR_BOTPRE_CODEMP AS EmpresaSolicitud,
                 b.USR_BOTPRE_CODSOL AS CodSolicitud,
                 b.USR_BOTPRE_NROSOL AS NroSolicitud,
@@ -41,7 +52,12 @@ router.post("/", async (req, res) => {
                 b.USR_BOTPRE_FLGTRP AS ConfirmacionSolicitud
             INTO #Solicitudes
             FROM USR_BOTPRE b WITH (NOLOCK)
-            WHERE b.USR_BO_FECALT BETWEEN @FechaDesde AND @FechaHasta
+            WHERE (
+                @NroCargaFiltro IS NOT NULL
+                OR @NroFacturaFiltro IS NOT NULL
+                OR @NroRCFiltro IS NOT NULL
+                OR b.USR_BO_FECALT BETWEEN @FechaDesde AND @FechaHasta
+            )
             AND (@NroPRFiltro IS NULL OR CAST(b.USR_BOTPRE_NROSOL AS VARCHAR) = @NroPRFiltro);
 
             CREATE CLUSTERED INDEX IX_Solicitudes ON #Solicitudes (EmpresaSolicitud, NroSolicitud);
@@ -70,7 +86,12 @@ router.post("/", async (req, res) => {
             WHERE 
                 h.FCRMVH_MODFOR = 'FC'
                 AND h.FCRMVH_CODFOR = 'PR'
-                AND h.FCRMVH_FCHMOV BETWEEN @FechaDesde AND @FechaHasta
+                AND (
+                    @NroCargaFiltro IS NOT NULL
+                    OR @NroFacturaFiltro IS NOT NULL
+                    OR @NroRCFiltro IS NOT NULL
+                    OR h.FCRMVH_FCHMOV BETWEEN @FechaDesde AND @FechaHasta
+                )
                 AND h.FCRMVH_CODEMP IN ('FP', 'DIBIAG', 'MULTIM')
                 AND (@EmpresaFiltro IS NULL OR h.FCRMVH_CODEMP = @EmpresaFiltro)
                 AND (@NroPRFiltro IS NULL OR h.FCRMVH_NROFOR = @NroPRFiltro);
@@ -152,7 +173,19 @@ router.post("/", async (req, res) => {
                 )
                 -- Excluir cargas anuladas
                 AND ISNULL(gt.USR_GTMVIH_ANULAR, 'N') <> 'S'
-                AND (gt.USR_GTMVIH_MOTBAJ IS NULL OR gt.USR_GTMVIH_MOTBAJ = '');
+                AND (gt.USR_GTMVIH_MOTBAJ IS NULL OR gt.USR_GTMVIH_MOTBAJ = '')
+                AND (@NroFacturaFiltro IS NULL OR i.USR_GTMVII_NROFAC = @NroFacturaFiltro)
+                AND (@NroCargaFiltro IS NULL OR gt.USR_GTMVIH_CODIGO = @NroCargaFiltro)
+                AND (@FacturaTipoFiltro IS NULL OR UPPER(COALESCE(i.USR_GTMVII_CODFAC, '')) LIKE @FacturaTipoLike)
+                AND (@PuntoVentaFiltro IS NULL OR UPPER(COALESCE(i.USR_GTMVII_CODFAC, '')) LIKE @PuntoVentaLike)
+                AND (
+                    -- Si se busca por carga: filtrar por fecha de alta de la carga
+                    (@NroCargaFiltro IS NOT NULL AND CAST(i.USR_GT_FECALT AS DATE) BETWEEN @FechaDesde AND @FechaHasta)
+                    -- Si se busca por factura: filtrar por fecha de la factura
+                    OR (@NroFacturaFiltro IS NOT NULL AND CAST(f.FCRMVH_FCHMOV AS DATE) BETWEEN @FechaDesde AND @FechaHasta)
+                    -- Si no se busca por entidad específica: sin filtro adicional (ya filtrado por PR en #PRBase)
+                    OR (@NroCargaFiltro IS NULL AND @NroFacturaFiltro IS NULL)
+                );
 
             CREATE CLUSTERED INDEX IX_Cargas ON #Cargas (NroPR, EmpreCarga);
             CREATE NONCLUSTERED INDEX IX_Cargas_Cod ON #Cargas (CodCar, EmpreCarga);
@@ -180,7 +213,8 @@ router.post("/", async (req, res) => {
                     WHERE vc.VTRMVC_CODAPL = gt.CodFac
                     AND vc.VTRMVC_NROAPL = gt.NroFac
                     AND vc.VTRMVC_CODEMP = gt.EmpreI
-                );
+                )
+                AND (@NroRCFiltro IS NULL OR vc.VTRMVC_NROFOR = @NroRCFiltro);
 
             CREATE CLUSTERED INDEX IX_Recibos ON #Recibos (EmpRC, CodFact, NroFact);
 
@@ -332,6 +366,11 @@ router.post("/", async (req, res) => {
                    -- Búsqueda robusta por si el join a cl falló o hay espacios
                    OR EXISTS (SELECT 1 FROM VTMCLH cl2 WHERE cl2.VTMCLH_NROCTA = pr.FCRMVH_NROCTA AND cl2.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
                 )
+                AND (@NroFacturaFiltro IS NULL OR gt.NroFac = @NroFacturaFiltro)
+                AND (@NroCargaFiltro IS NULL OR gt.CodCar = @NroCargaFiltro)
+                AND (@NroRCFiltro IS NULL OR rc.NroRC = @NroRCFiltro)
+                AND (@FacturaTipoFiltro IS NULL OR UPPER(COALESCE(gt.CodFac, '')) LIKE @FacturaTipoLike)
+                AND (@PuntoVentaFiltro IS NULL OR UPPER(COALESCE(gt.CodFac, '')) LIKE @PuntoVentaLike)
 
             -- Agregar PRs que NO tienen solicitud (creados directamente)
             UNION ALL
@@ -475,6 +514,11 @@ router.post("/", async (req, res) => {
                      -- Búsqueda robusta por si el join a cl falló o hay espacios
                      OR EXISTS (SELECT 1 FROM VTMCLH cl2 WHERE cl2.VTMCLH_NROCTA = pr.FCRMVH_NROCTA AND cl2.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
                     )
+                AND (@NroFacturaFiltro IS NULL OR gt.NroFac = @NroFacturaFiltro)
+                AND (@NroCargaFiltro IS NULL OR gt.CodCar = @NroCargaFiltro)
+                AND (@NroRCFiltro IS NULL OR rc.NroRC = @NroRCFiltro)
+                AND (@FacturaTipoFiltro IS NULL OR UPPER(COALESCE(gt.CodFac, '')) LIKE @FacturaTipoLike)
+                AND (@PuntoVentaFiltro IS NULL OR UPPER(COALESCE(gt.CodFac, '')) LIKE @PuntoVentaLike)
 
             ORDER BY 
                 FecAltCarga DESC,
@@ -500,6 +544,13 @@ router.post("/", async (req, res) => {
             .input("FechaHasta", sql.Date, fechaHasta)
             .input("ClienteFiltro", sql.VarChar(100), cliente)
             .input("NroPRFiltro", sql.BigInt, nroPR)
+            .input("NroFacturaFiltro", sql.BigInt, nroFactura)
+            .input("NroCargaFiltro", sql.BigInt, nroCarga)
+            .input("NroRCFiltro", sql.BigInt, nroRC)
+            .input("FacturaTipoFiltro", sql.VarChar(5), normalizedFacturaTipo)
+            .input("FacturaTipoLike", sql.VarChar(10), facturaTipoLike)
+            .input("PuntoVentaFiltro", sql.VarChar(10), normalizedPuntoVenta)
+            .input("PuntoVentaLike", sql.VarChar(20), puntoVentaLike)
             .input("Limit", sql.Int, limit)
             .query(query);
 
@@ -513,6 +564,11 @@ router.post("/", async (req, res) => {
                 fechaHasta,
                 cliente,
                 nroPR,
+                nroFactura,
+                nroCarga,
+                nroRC,
+                facturaTipo: normalizedFacturaTipo,
+                puntoVenta: normalizedPuntoVenta,
             },
         });
     } catch (error) {

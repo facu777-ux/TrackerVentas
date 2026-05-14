@@ -11,10 +11,25 @@ const api = axios.create({
   },
 });
 
+const isApiTraceEnabled = () => {
+  if (typeof window === "undefined") return false;
+  return window.localStorage?.getItem("tv_api_trace") === "1";
+};
+
 export const seguimientoAPI = {
   // Buscar seguimiento con filtros
   buscarSeguimiento: async (filtros) => {
+    if (isApiTraceEnabled()) {
+      console.info("[API_TRACE] /seguimiento request", filtros);
+    }
     const response = await api.post("/seguimiento", filtros);
+    if (isApiTraceEnabled()) {
+      const count = Array.isArray(response.data?.data) ? response.data.data.length : 0;
+      console.info("[API_TRACE] /seguimiento response", {
+        success: !!response.data?.success,
+        count,
+      });
+    }
     return response.data;
   },
 
@@ -29,6 +44,12 @@ export const seguimientoAPI = {
     const response = await api.get("/seguimiento/clientes", {
       params: { search },
     });
+    return response.data;
+  },
+
+  // Obtener puntos de venta externos (proxy backend)
+  obtenerPuntosVenta: async () => {
+    const response = await api.get("/points-of-sale");
     return response.data;
   },
 

@@ -44,7 +44,8 @@ const ResultsTable = ({
     setDisplayCurrency,
     exchangeRate = 1000,
     chileExchangeRate = 900,
-    searchCriteria = null
+    searchCriteria = null,
+    highlightItem = null
 }) => {
     // Memoize budget contexts to avoid O(N^2) complexity on every render
     const budgetContexts = React.useMemo(() => {
@@ -242,6 +243,7 @@ const ResultsTable = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
 
     // Filtrado
     const filteredData = React.useMemo(() => {
@@ -521,6 +523,241 @@ const ResultsTable = ({
 
         return presupuestosArray;
     }, [filteredData, sortConfig]);
+
+    const normalizeStepValue = (value) => {
+        const raw = String(value || '').trim();
+        return raw.replace(/^0+/, '') || '0';
+    };
+
+    const extractNumericTokens = (value) => {
+        return (String(value || '').match(/\d+/g) || []).map(token => normalizeStepValue(token));
+    };
+
+    const pickStrongestToken = (tokens = []) => {
+        if (!tokens.length) return '';
+        return tokens.reduce((best, token) => {
+            if (!best) return token;
+            if (token.length > best.length) return token;
+            if (token.length === best.length) return token; // ante empate, priorizamos el más reciente
+            return best;
+        }, '');
+    };
+
+    const getLookupTokenByType = (type, value) => {
+        const upperType = String(type || '').toUpperCase();
+        if (upperType === 'FACTURA' || upperType === 'RECIBO') {
+            const tokens = extractNumericTokens(value);
+            return pickStrongestToken(tokens);
+        }
+        return normalizeStepValue(value);
+    };
+
+    const getStepTokensForItem = (mode, item) => {
+        const upperMode = String(mode || '').toUpperCase();
+        const tokenSet = new Set();
+
+        const addToken = (candidate) => {
+            const token = getLookupTokenByType(upperMode, candidate);
+            if (token) tokenSet.add(token);
+        };
+
+        if (upperMode === 'PRESUPUESTO') {
+            addToken(item?.NroPR);
+        } else if (upperMode === 'CARGA') {
+            addToken(item?.CodigoCarga);
+        } else if (upperMode === 'FACTURA') {
+            addToken(item?.FacturaAsociadaOP);
+            (item?.individualInvoices || []).forEach(addToken);
+        } else if (upperMode === 'RECIBO') {
+            addToken(item?.ReciboCobranza);
+            (item?.individualReceipts || []).forEach(addToken);
+        }
+
+        return Array.from(tokenSet);
+    };
+
+    const matchesValueByType = (type, sourceValue, lookupValue) => {
+        const upperType = String(type || '').toUpperCase();
+        const normalizedLookup = getLookupTokenByType(upperType, lookupValue);
+
+        if (!normalizedLookup) return false;
+
+        if (upperType === 'FACTURA' || upperType === 'RECIBO') {
+            const sourceTokens = extractNumericTokens(sourceValue);
+            return sourceTokens.includes(normalizedLookup);
+        }
+
+        return getLookupTokenByType(upperType, sourceValue) === normalizedLookup;
+    };
+
+
+    // EFECTO: Resaltar y hacer scroll a un item específico solicitado por el bot
+    React.useEffect(() => {
+        if (!highlightItem) return;
+
+        // Normalizar el objeto highlightItem sin mutarlo
+        const normalizedItem = {
+            value: (highlightItem.value || highlightItem.id)?.toString().trim(),
+            type: (highlightItem.type || 'PR').toUpperCase()
+        };
+
+        if (!normalizedItem.value) return;
+
+        const { value, type } = normalizedItem;
+        const lookupToken = getLookupTokenByType(type, value);
+        
+        // 1. Auto-expansión (Búsqueda en datos procesados)
+        const findTargetGroup = () => {
+            if (type === 'PR') {
+                return groupedData.find(g => matchesValueByType('PR', g.presupuesto, value));
+            }
+            
+            return groupedData.find(g => 
+                g.cargasArray.some(c => {
+                    if (type === 'CARGA') {
+                        return matchesValueByType('CARGA', c.carga, value);
+                    }
+                    if (type === 'FACTURA') {
+                        return matchesValueByType('FACTURA', c.info.FacturaAsociadaOP, value) || 
+                               c.info.individualInvoices?.some(invoice => matchesValueByType('FACTURA', invoice, value));
+                    }
+                    if (type === 'RECIBO') {
+                        return matchesValueByType('RECIBO', c.info.ReciboCobranza, value) ||
+                               c.info.individualReceipts?.some(receipt => matchesValueByType('RECIBO', receipt, value));
+                    }
+                    return false;
+                })
+            );
+        };
+
+        const targetGroup = findTargetGroup();
+        const targetGroupIndex = targetGroup
+            ? groupedData.findIndex(g => g.key === targetGroup.key)
+            : -1;
+        const targetPage = targetGroupIndex >= 0
+            ? Math.floor(targetGroupIndex / itemsPerPage) + 1
+            : null;
+
+        // Si el presupuesto está en otra página, navegamos primero y esperamos al próximo render.
+        if (targetPage && currentPage !== targetPage) {
+            setCurrentPage(targetPage);
+            return;
+        }
+        
+        if (targetGroup && !expandedPresupuestos.has(targetGroup.key)) {
+            setExpandedPresupuestos(prev => new Set([...prev, targetGroup.key]));
+        }
+
+        // 2. Scroll y Animación con Reintentos
+        const findAndHighlight = () => {
+            let attempts = 0;
+            const maxAttempts = 15; // Aumentado para dar más tiempo
+            
+            const task = setInterval(() => {
+                attempts++;
+                
+                // Construir los posibles IDs a buscar
+                const possibleIds = [
+                    `STEP-${type}-${lookupToken}`,
+                    `${type}-${lookupToken}`,
+                    `step-${type.toLowerCase()}-${lookupToken}`,
+                    `${type.toLowerCase()}-${lookupToken}`,
+                    `STEP-${type}-${value}`,
+                    `${type}-${value}`,
+                    `step-${type.toLowerCase()}-${value}`,
+                    `${type.toLowerCase()}-${value}`
+                ];
+                
+                // Buscar el elemento
+                let element = null;
+                for (const id of possibleIds) {
+                    element = document.getElementById(id);
+                    if (element) break;
+                }
+
+                if (!element) {
+                    element = document.querySelector(`[data-step-kind="${type}"][data-step-token="${lookupToken}"]`);
+                }
+
+                if (!element) {
+                    element = document.querySelector(`[data-step-kind="${type}"][data-step-tokens~="${lookupToken}"]`);
+                }
+                
+                if (element) {
+                    clearInterval(task);
+                    
+                    // Aplicar scroll
+                    element.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center',
+                        inline: 'nearest'
+                    });
+                    
+                    // Aplicar clases de resaltado
+                    const isStepElement = element.id.startsWith('STEP-') || element.id.startsWith('step-');
+                    if (isStepElement) {
+                        const markerElement = element.querySelector('.table-timeline-marker');
+                        if (markerElement) {
+                            markerElement.classList.add('highlight-target');
+                        }
+                    } else {
+                        element.classList.add('spotlight-highlight');
+                    }
+                    
+                    // Remover clases después de la animación
+                    const removeTimeout = setTimeout(() => {
+                        element.classList.remove('spotlight-highlight');
+                        const markerElement = element.querySelector('.table-timeline-marker');
+                        if (markerElement) {
+                            markerElement.classList.remove('highlight-target');
+                        }
+                    }, 6000);
+                    
+                    return;
+                }
+                
+                // Fallback: Si no encontramos el elemento específico, resaltar el PR padre
+                if (attempts >= maxAttempts) {
+                    clearInterval(task);
+                    
+                    if (targetGroup) {
+                        const prIds = [
+                            `PR-${targetGroup.presupuesto}`,
+                            `pr-${targetGroup.presupuesto}`
+                        ];
+                        
+                        let prElement = null;
+                        for (const id of prIds) {
+                            prElement = document.getElementById(id);
+                            if (prElement) break;
+                        }
+                        
+                        if (prElement) {
+                            prElement.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'center' 
+                            });
+                            prElement.classList.add('spotlight-highlight');
+                            setTimeout(() => {
+                                prElement.classList.remove('spotlight-highlight');
+                            }, 5000);
+                        } else {
+                            console.warn(`No se pudo encontrar elemento para token ${lookupToken}. IDs intentados: ${possibleIds.join(', ')}`);
+                        }
+                    }
+                }
+            }, 200);
+        };
+
+        // Dar un pequeño delay inicial para asegurar que React haya renderizado
+        const initialDelay = setTimeout(() => {
+            findAndHighlight();
+        }, 100);
+
+        return () => {
+            clearTimeout(initialDelay);
+        };
+    }, [highlightItem?.value, highlightItem?.id, highlightItem?.type, expandedPresupuestos, groupedData, currentPage, itemsPerPage]);
 
     // Paginación sobre presupuestos agrupados
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -1128,26 +1365,47 @@ const ResultsTable = ({
 
         return (
             <div className="table-process-timeline" onClick={(e) => e.stopPropagation()}>
-                {steps.map((step) => (
-                    <div 
-                        key={step.id} 
-                        className={`table-timeline-item ${step.completed ? 'completed' : ''}`}
-                        onClick={(e) => {
-                            if (step.isMulti && step.completed) {
-                                setActivePopover({
-                                    type: step.mode,
-                                    item: item,
-                                    documents: step.docs,
-                                    anchorEl: e.currentTarget.querySelector('.table-timeline-marker')
-                                });
-                            } else {
-                                setSelectedItem(item);
-                                setModalMode(step.mode);
-                                setSelectedDocRef(null); // Reset
-                            }
-                        }}
-                    >
-                        <div className={`table-timeline-marker ${step.isMulti ? 'stacked' : ''}`}>{step.id}</div>
+                {steps.map((step) => {
+                    const rawStepValue = (step.mode === 'presupuesto' ? item.NroPR : (step.mode === 'carga' ? item.CodigoCarga : (step.mode === 'factura' ? item.FacturaAsociadaOP : item.ReciboCobranza)));
+                    const stepTokens = getStepTokensForItem(step.mode, item);
+                    const stepIdSuffix = stepTokens[0] || getLookupTokenByType(step.mode.toUpperCase(), rawStepValue);
+                    const highlightLookupToken = getLookupTokenByType(step.mode.toUpperCase(), highlightItem?.value);
+                    const isHighlightedCircle =
+                        highlightItem?.type === step.mode.toUpperCase() &&
+                        highlightLookupToken !== '' &&
+                        stepTokens.includes(highlightLookupToken);
+
+                    return (
+                        <div 
+                            key={step.id} 
+                            id={`STEP-${step.mode.toUpperCase()}-${stepIdSuffix}`}
+                            data-step-kind={step.mode.toUpperCase()}
+                            data-step-token={stepIdSuffix}
+                            data-step-tokens={stepTokens.join(' ')}
+                            className={`table-timeline-item ${step.completed ? 'completed' : ''}`}
+                            onClick={(e) => {
+                                if (step.isMulti && step.completed) {
+                                    setActivePopover({
+                                        type: step.mode,
+                                        item: item,
+                                        documents: step.docs,
+                                        anchorEl: e.currentTarget.querySelector('.table-timeline-marker')
+                                    });
+                                } else {
+                                    setSelectedItem(item);
+                                    setModalMode(step.mode);
+                                    setSelectedDocRef(null); // Reset
+                                }
+                            }}
+                        >
+                            <div 
+                                className={`table-timeline-marker ${step.isMulti ? 'stacked' : ''}`}
+                                style={isHighlightedCircle ? {
+                                    zIndex: 10
+                                } : {}}
+                            >
+                                {step.id}
+                            </div>
                         <div className="table-timeline-content">
                             <h4 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                 {step.label}
@@ -1166,7 +1424,8 @@ const ResultsTable = ({
                             {step.date && <small>{step.date}</small>}
                         </div>
                     </div>
-                ))}
+                );
+                })}
             </div>
         );
     };
@@ -1317,16 +1576,6 @@ const ResultsTable = ({
             <div className="loading-container">
                 <div className="loading-spinner"></div>
                 <p>Cargando datos...</p>
-            </div>
-        );
-    }
-
-    if (!data || data.length === 0) {
-        return (
-            <div className="no-data-container">
-                <FaExclamationCircle className="no-data-icon" />
-                <h3>No se encontraron resultados</h3>
-                <p>Intenta ajustar los filtros de búsqueda</p>
             </div>
         );
     }
@@ -1511,7 +1760,13 @@ const ResultsTable = ({
                 </div>
             )}
 
-            {isMobile ? (
+            {groupedData.length === 0 ? (
+                <div className="no-data-container">
+                    <FaExclamationCircle className="no-data-icon" />
+                    <h3>No se encontraron resultados</h3>
+                    <p>Intenta ajustar los filtros de búsqueda</p>
+                </div>
+            ) : isMobile ? (
                 renderMobileCards()
             ) : (
                 <div className={`table-wrapper ${(showPRFilter || showClienteFilter || showEstadoModal) ? 'filter-open' : ''}`}>
@@ -1643,7 +1898,9 @@ const ResultsTable = ({
                                     <React.Fragment key={group.key}>
                                         {/* Fila del Presupuesto */}
                                         <tr
-                                            className={`presupuesto-row ${isPresupuestoExpanded ? 'expanded' : ''}`}
+                                            key={group.key}
+                                            id={`PR-${group.presupuesto?.toString().trim()}`}
+                                            className={`presupuesto-row ${isPresupuestoExpanded ? 'expanded' : ''} ${highlightItem?.type === 'PR' && highlightItem.value?.toString().trim() === group.presupuesto?.toString().trim() ? 'highlight-row' : ''}`}
                                             onClick={() => togglePresupuesto(group.key)}
                                             style={{ position: 'relative' }}
                                         >
@@ -1713,14 +1970,16 @@ const ResultsTable = ({
                                         </tr>
 
                                         {/* Cargas del Presupuesto */}
-                                        {isPresupuestoExpanded && cargasArray.map((cargaGroup) => {
+                                        {isPresupuestoExpanded && cargasArray.map((cargaGroup, index) => {
                                             const cargaKey = `${group.presupuesto}-${cargaGroup.carga || 'sin-carga'}`;
 
                                             return (
                                                 <React.Fragment key={cargaKey}>
                                                     {/* Fila de la Carga */}
                                                     <tr
-                                                        className="carga-row clickable-row"
+                                                        key={`carga-${cargaGroup.carga || index}`}
+                                                        id={`CARGA-${cargaGroup.carga?.toString().trim() || ''}`}
+                                                        className={`carga-row clickable-row ${highlightItem?.type === 'CARGA' && highlightItem.value?.toString().trim() === cargaGroup.carga?.toString().trim() ? 'highlight-row' : ''}`}
                                                         onClick={(e) => handleRowClick(cargaGroup.info, e)}
                                                         title="Haz clic para ver detalles del item"
                                                     >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchFilters from './components/SearchFilters';
 import ResultsTable from './components/ResultsTable';
@@ -9,6 +9,7 @@ import LogisticsView from './components/LogisticsView';
 import BottleneckFloatingButton from './components/BottleneckFloatingButton';
 import AppSidebar from './components/AppSidebar';
 import RightFiltersSidebar from './components/RightFiltersSidebar';
+import ChatbotAssistant from './components/ChatbotAssistant';
 import { seguimientoAPI } from './services/api';
 import { FaTruck, FaChartLine, FaExclamationTriangle, FaSun, FaMoon, FaFileInvoice, FaSearch, FaBars, FaTimes, FaFilter, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
 import { AlertCircle, HelpCircle } from 'lucide-react';
@@ -55,12 +56,33 @@ function App() {
   const [displayCurrency, setDisplayCurrency] = useState('ARS');
   const [exchangeRate, setExchangeRate] = useState(1000); // BNA
   const [chileExchangeRate, setChileExchangeRate] = useState(0); // SII Chile
+  const [highlightedItem, setHighlightedItem] = useState(null);
+  const highlightTimeoutRef = useRef(null);
+
+  const scheduleHighlightCleanup = (ms = 10000) => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedItem(null);
+      highlightTimeoutRef.current = null;
+    }, ms);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 1. Fetch de Cotización Real (BNA)
   useEffect(() => {
     const fetchRate = async () => {
       try {
-        const response = await fetch('https://dolarapi.com/v1/dolares/oficial');
+        const response = await fetch('/api/exchange/bna');
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         if (data && data.venta) {
           setExchangeRate(data.venta);
@@ -68,6 +90,7 @@ function App() {
         }
       } catch (err) {
         console.error('Error al obtener cotización:', err);
+        // Si falla, el valor inicial '1000' se mantiene
       }
     };
     fetchRate();
@@ -77,14 +100,17 @@ function App() {
   useEffect(() => {
     const fetchChileRate = async () => {
       try {
-        const response = await fetch('https://mindicador.cl/api/dolar');
+        const response = await fetch('/api/exchange/sii');
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
         const data = await response.json();
         if (data && data.serie && data.serie.length > 0) {
           setChileExchangeRate(data.serie[0].valor);
           console.log('Cotización SII Chile actualizada:', data.serie[0].valor);
         }
       } catch (err) {
-        console.error('Error al obtener cotización SII Chile:', err);
+        // Fallback de cotización por si la API chilena falla o el proxy de Vite retorna 500
+        console.warn('SII Chile no responde. Usando cotización de respaldo ($950).');
+        setChileExchangeRate(950);
       }
     };
     fetchChileRate();
@@ -242,6 +268,258 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleBotAction = (action) => {
+    if (!action || !action.type) return;
+    console.log('Bot Action Received:', action);
+
+    if (action.type === 'NAVIGATE_VIEW') {
+      const allowedViews = ['dashboard', 'analitica', 'logistica'];
+      if (allowedViews.includes(action.view)) {
+        setActiveView(action.view);
+      }
+      return;
+    }
+    
+    if (action.type === 'NAVIGATE') {
+      setActiveView(action.view);
+    } else if (action.type === 'HIGHLIGHT') {
+      setActiveView('dashboard');
+      setHighlightedItem(action.highlight);
+      scheduleHighlightCleanup(8000);
+    } else if (action.type === 'NAVIGATE_TO') {
+      // Acción proactiva del bot para encontrar un registro específico
+      setActiveView('dashboard');
+      
+      // El asistente nos da kind (PR/CARGA/FACTURA) e id
+      setHighlightedItem({ 
+        type: (action.kind || 'PR').toUpperCase(), 
+        value: action.id 
+      });
+      
+      // Limpiar resaltado después de un tiempo prudencial
+      scheduleHighlightCleanup(10000);
+    }
+  };
+
+  const handleBotSearch = async ({ kind, id, targetView = 'dashboard', facturaTipo = null, puntoVenta = null }) => {
+    if (!kind || !id) return { success: false };
+
+    const botTraceEnabled = typeof window !== 'undefined' && window.localStorage?.getItem('tv_bot_trace') === '1';
+    const traceBotSearch = (stage, detail = {}) => {
+      if (!botTraceEnabled) return;
+      console.info('[BOT_SEARCH_TRACE]', stage, detail);
+    };
+
+    const normalizedKind = kind.toUpperCase();
+
+    const extractPrimaryNumericId = (rawValue, entityKind) => {
+      const tokens = String(rawValue || '').match(/\d+/g) || [];
+      if (!tokens.length) return null;
+
+      // Para FACTURA/RECIBO elegimos el último token numérico por formatos compuestos (p.ej. 0001-00006843)
+      const preferredToken = (entityKind === 'FACTURA' || entityKind === 'RECIBO')
+        ? tokens[tokens.length - 1]
+        : tokens[0];
+
+      const parsed = parseInt(preferredToken, 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const numericId = extractPrimaryNumericId(id, normalizedKind);
+    if (numericId === null || Number.isNaN(numericId)) return { success: false };
+
+    traceBotSearch('START', {
+      kind: normalizedKind,
+      id: String(id),
+      targetView,
+      facturaTipo,
+      puntoVenta
+    });
+
+    const mañana = new Date();
+    mañana.setDate(mañana.getDate() + 1);
+
+    const parseDateValue = (value) => {
+      if (!value) return null;
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const toISODate = (date) => date.toISOString().split('T')[0];
+
+    const normalizeNumericString = (value) => {
+      const normalized = String(value || '').trim().replace(/^0+/, '');
+      return normalized === '' ? '0' : normalized;
+    };
+
+    const extractNormalizedTokens = (value) => {
+      return (String(value || '').match(/\d+/g) || []).map(token => normalizeNumericString(token));
+    };
+
+    const pickStrongestToken = (tokens = []) => {
+      if (!tokens.length) return null;
+      return tokens.reduce((best, token) => {
+        if (!best) return token;
+        if (token.length > best.length) return token;
+        if (token.length === best.length) return token; // ante empate, priorizamos el más reciente
+        return best;
+      }, null);
+    };
+
+    const fieldContainsExactId = (value, targetId) => {
+      if (value === null || value === undefined) return false;
+      const valueText = String(value).trim();
+      const normalizedTarget = normalizeNumericString(targetId);
+
+      // Coincidencia exacta directa
+      if (normalizeNumericString(valueText) === normalizedTarget) return true;
+
+      // Coincidencia exacta por token numérico, evita colisiones de sufijos (6843 != 36843)
+      const tokens = valueText.match(/\d+/g) || [];
+      return tokens.some(token => normalizeNumericString(token) === normalizedTarget);
+    };
+
+    const fieldMatchesByKind = (value, targetId, entityKind) => {
+      if (value === null || value === undefined) return false;
+
+      const normalizedTarget = normalizeNumericString(targetId);
+      if (!normalizedTarget) return false;
+
+      const upperKind = String(entityKind || '').toUpperCase();
+      if (upperKind === 'FACTURA' || upperKind === 'RECIBO') {
+        const sourceTokens = extractNormalizedTokens(value);
+        const sourcePrimaryToken = pickStrongestToken(sourceTokens);
+
+        // Regla estricta por tipo documental para evitar colisiones por token de prefijo.
+        return sourcePrimaryToken === normalizedTarget;
+      }
+
+      return fieldContainsExactId(value, normalizedTarget);
+    };
+
+    const matchByKind = (item) => {
+      const target = String(numericId);
+      if (normalizedKind === 'PR') return fieldMatchesByKind(item.NroPR, target, 'PR');
+      if (normalizedKind === 'CARGA') return fieldMatchesByKind(item.CodigoCarga, target, 'CARGA');
+      if (normalizedKind === 'FACTURA') return fieldMatchesByKind(item.FacturaAsociadaOP, target, 'FACTURA');
+      if (normalizedKind === 'RECIBO') return fieldMatchesByKind(item.ReciboCobranza, target, 'RECIBO');
+      return false;
+    };
+
+    const buildDateWindow = (rows) => {
+      const dates = rows
+        .map(row => parseDateValue(row.FchMovimiento || row.FchAltaRegistro))
+        .filter(Boolean);
+
+      if (!dates.length) return null;
+
+      const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+      minDate.setDate(minDate.getDate() - 15);
+      maxDate.setDate(maxDate.getDate() + 2);
+
+      return {
+        fechaDesde: toISODate(minDate),
+        fechaHasta: toISODate(maxDate)
+      };
+    };
+
+    const baseProbeFilters = {
+      ...searchCriteria,
+      fechaDesde: '2010-01-01',
+      fechaHasta: toISODate(mañana),
+      nroPR: normalizedKind === 'PR' ? numericId : null,
+      nroCarga: normalizedKind === 'CARGA' ? numericId : null,
+      nroFactura: normalizedKind === 'FACTURA' ? numericId : null,
+      nroRC: normalizedKind === 'RECIBO' ? numericId : null,
+      facturaTipo: normalizedKind === 'FACTURA' ? (facturaTipo || null) : null,
+      puntoVenta: normalizedKind === 'FACTURA' ? (puntoVenta || null) : null,
+      limit: 250
+    };
+
+    let probeRows = [];
+    let probeFailed = false;
+    try {
+      const probeResponse = await seguimientoAPI.buscarSeguimiento(baseProbeFilters);
+      if (probeResponse?.success && Array.isArray(probeResponse.data)) {
+        probeRows = probeResponse.data.filter(matchByKind);
+        traceBotSearch('PROBE_OK', {
+          probeCount: probeResponse.data.length,
+          exactMatches: probeRows.length
+        });
+      }
+    } catch (probeError) {
+      probeFailed = true;
+      console.warn('Búsqueda de sondeo del bot falló, se usará estrategia amplia.', probeError);
+      traceBotSearch('PROBE_ERROR', {
+        message: probeError?.message || 'error-desconocido'
+      });
+    }
+
+    const exactMatchFound = probeRows.length > 0;
+    const relatedPR = probeRows.find(row => row.NroPR)?.NroPR;
+    const dateWindow = buildDateWindow(probeRows);
+    const usedWideFallback = !dateWindow;
+
+    const finalFilters = {
+      ...searchCriteria,
+      fechaDesde: dateWindow?.fechaDesde || '2010-01-01',
+      fechaHasta: dateWindow?.fechaHasta || toISODate(mañana),
+      nroPR: (normalizedKind === 'PR' || (normalizedKind === 'CARGA' && relatedPR)) ? (relatedPR || numericId) : null,
+      nroCarga: (normalizedKind === 'CARGA' && !relatedPR) ? numericId : null,
+      nroFactura: (normalizedKind === 'FACTURA' && !relatedPR) ? numericId : null,
+      nroRC: (normalizedKind === 'RECIBO' && !relatedPR) ? numericId : null,
+      facturaTipo: normalizedKind === 'FACTURA' ? (facturaTipo || null) : null,
+      puntoVenta: normalizedKind === 'FACTURA' ? (puntoVenta || null) : null,
+      limit: 500
+    };
+
+    traceBotSearch('FINAL_FILTERS', {
+      finalFilters,
+      exactMatchFound,
+      relatedPR,
+      usedWideFallback,
+      probeFailed
+    });
+
+    let searchResult = { success: false, count: 0 };
+    try {
+      setShowRightSidebar(true);
+      searchResult = await handleSearch(finalFilters);
+    } finally {
+      setShowRightSidebar(false);
+    }
+
+    // Filtro local para mejorar foco visual en la tabla tras la búsqueda.
+    if (normalizedKind === 'PR') {
+      setSearchTerm(String(id));
+      setSearchCarga('');
+    } else if (normalizedKind === 'CARGA') {
+      setSearchCarga(String(id));
+      setSearchTerm('');
+    } else {
+      // Evita ambigüedad por matching local parcial (ej: RECIBO 6843 vs FACTURA 36843)
+      setSearchTerm('');
+      setSearchCarga('');
+    }
+
+    setActiveView(targetView === 'logistica' ? 'logistica' : 'dashboard');
+    traceBotSearch('END', {
+      success: !!searchResult?.success,
+      count: searchResult?.count || 0,
+      targetView: targetView === 'logistica' ? 'logistica' : 'dashboard',
+      criterion: exactMatchFound ? 'exact_by_type_token' : 'fallback_broad'
+    });
+    return {
+      success: !!searchResult?.success,
+      count: searchResult?.count || 0,
+      targetView: targetView === 'logistica' ? 'logistica' : 'dashboard',
+      exactMatchFound,
+      usedWideFallback,
+      probeFailed
+    };
+  };
+
   const toggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
@@ -251,6 +529,9 @@ function App() {
     setSearchCriteria(filtros);
     setError(null);
     setActiveFilter('all');
+    // Limpia filtros locales para evitar arrastre entre búsquedas manuales y del bot.
+    setSearchTerm('');
+    setSearchCarga('');
 
     try {
       const response = await seguimientoAPI.buscarSeguimiento(filtros);
@@ -258,14 +539,17 @@ function App() {
       if (response.success) {
         setData(response.data);
         setHasSearched(true);
+        return { success: true, count: Array.isArray(response.data) ? response.data.length : 0 };
       } else {
         setError('Error al obtener los datos');
         setData([]);
+        return { success: false, count: 0 };
       }
     } catch (error) {
       console.error('Error en la búsqueda:', error);
       setError(error.response?.data?.message || 'Error de conexión con el servidor');
       setData([]);
+      return { success: false, count: 0 };
     } finally {
       setLoading(false);
     }
@@ -776,6 +1060,7 @@ function App() {
                   exchangeRate={exchangeRate}
                   chileExchangeRate={chileExchangeRate}
                   searchCriteria={searchCriteria}
+                  highlightItem={highlightedItem}
                 />
               )}
             </div>
@@ -784,9 +1069,15 @@ function App() {
 
         <footer className="app-footer">
           <div className="container">
-            <p>&copy; {new Date().getFullYear()} Transporte Internacional DIBIAGI S.A.</p>
+            <p>&copy; {new Date().getFullYear()} Transporte Internacional DIBIAGI S.A. | <span style={{opacity: 0.7, fontSize: '0.8em'}}>Asistente Virtual Activo</span></p>
           </div>
         </footer>
+
+        {/* <ChatbotAssistant
+          currentData={data}
+          onBotAction={handleBotAction}
+          onBotSearch={handleBotSearch}
+        /> */}
       </div>
 
       {/* Command Palette Overlay */}
