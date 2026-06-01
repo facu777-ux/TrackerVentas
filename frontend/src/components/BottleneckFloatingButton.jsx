@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { AlertCircle, Clock, ChevronRight, X, TrendingUp } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import React, { useState, useMemo } from 'react';
+import { AlertCircle, Clock, ChevronRight, X } from 'lucide-react';
+import AgingReportModal from './AgingReportModal';
 import './BottleneckFloatingButton.css';
 
-const BottleneckFloatingButton = ({ data }) => {
+const BottleneckFloatingButton = ({ data, onClienteSelect, onCargoNavigate }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [agingOpen, setAgingOpen] = useState(false);
 
     // Cerrar al hacer click afuera
     React.useEffect(() => {
@@ -62,6 +62,8 @@ const BottleneckFloatingButton = ({ data }) => {
     if (agingData.length === 0) return null;
 
     return (
+        <>
+        {agingOpen && <AgingReportModal onClose={() => setAgingOpen(false)} onClienteSelect={onClienteSelect} />}
         <div className="bottleneck-container">
             {!isOpen ? (
                 <button className="bottleneck-trigger" onClick={() => setIsOpen(true)}>
@@ -106,7 +108,12 @@ const BottleneckFloatingButton = ({ data }) => {
                     <div className="aging-list">
                         <p className="list-title">CARGAS CON MAYOR DEMORA</p>
                         {agingData.map((item, idx) => (
-                            <div key={idx} className="aging-item">
+                            <div
+                                key={idx}
+                                className={`aging-item${onCargoNavigate ? ' aging-item-clickable' : ''}`}
+                                onClick={onCargoNavigate ? () => { setIsOpen(false); onCargoNavigate(item.id); } : undefined}
+                                title={onCargoNavigate ? `Ir a Carga ${item.id} en el dashboard` : undefined}
+                            >
                                 <div className="item-icon">
                                     <Clock size={14} className={item.dias > 15 ? 'text-red' : 'text-orange'} />
                                 </div>
@@ -129,11 +136,17 @@ const BottleneckFloatingButton = ({ data }) => {
                     </div>
 
                     <div className="panel-footer">
-                        <button className="btn-full-report">Generar Reporte de Aging</button>
+                        <button
+                            className="btn-full-report"
+                            onClick={() => { setIsOpen(false); setAgingOpen(true); }}
+                        >
+                            Generar Reporte de Aging
+                        </button>
                     </div>
                 </div>
             )}
         </div>
+        </>
     );
 };
 

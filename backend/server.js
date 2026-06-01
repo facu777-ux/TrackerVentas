@@ -13,6 +13,7 @@ const dashboardRoutes = require("./routes/dashboard");
 const chatbotRoutes = require("./routes/chatbot");
 const exchangeRoutes = require("./routes/exchange");
 const pointsOfSaleRoutes = require("./routes/pointsOfSale");
+const agingRoutes = require("./routes/aging");
 const keepAlive = require("./utils/keepAlive");
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/exchange", exchangeRoutes);
 app.use("/api/points-of-sale", pointsOfSaleRoutes);
+app.use("/api/aging", agingRoutes);
 
 // Ruta de salud
 app.get("/api/health", (req, res) => {

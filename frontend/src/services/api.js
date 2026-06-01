@@ -60,4 +60,12 @@ export const seguimientoAPI = {
   },
 };
 
+export const agingAPI = {
+  obtenerAging: async (empresa = null) => {
+    const params = empresa ? { empresa } : {};
+    const response = await api.get("/aging", { params });
+    return response.data;
+  },
+};
+
 export default api;

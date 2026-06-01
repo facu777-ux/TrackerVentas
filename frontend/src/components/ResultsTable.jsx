@@ -146,6 +146,7 @@ const ResultsTable = ({
     };
 
     const filterInputRef = React.useRef(null);
+    const highlightDidExpandRef = React.useRef(null); // clave del último highlight para el que ya se expandió el PR
     
     // Filtros estilo Excel (Declarados antes de su uso en useEffect)
     const [showPRFilter, setShowPRFilter] = useState(false);
@@ -593,7 +594,10 @@ const ResultsTable = ({
 
     // EFECTO: Resaltar y hacer scroll a un item específico solicitado por el bot
     React.useEffect(() => {
-        if (!highlightItem) return;
+        if (!highlightItem) {
+            highlightDidExpandRef.current = null;
+            return;
+        }
 
         // Normalizar el objeto highlightItem sin mutarlo
         const normalizedItem = {
@@ -644,7 +648,10 @@ const ResultsTable = ({
             return;
         }
         
-        if (targetGroup && !expandedPresupuestos.has(targetGroup.key)) {
+        // Solo expande una vez por highlight — si el usuario cierra el PR manualmente, no forzamos re-apertura
+        const highlightKey = `${value}-${type}`;
+        if (targetGroup && highlightDidExpandRef.current !== highlightKey) {
+            highlightDidExpandRef.current = highlightKey;
             setExpandedPresupuestos(prev => new Set([...prev, targetGroup.key]));
         }
 

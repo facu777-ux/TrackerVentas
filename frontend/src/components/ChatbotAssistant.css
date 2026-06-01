@@ -35,7 +35,7 @@
 }
 
 .chatbot-container {
-  display: none; /* TODO: re-enable when ready to release */
+  display: none; /* oculto temporalmente */
   position: fixed;
   bottom: 100px;
   right: 24px;

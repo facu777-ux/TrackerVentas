@@ -173,19 +173,44 @@
     gap: 0.75rem;
     padding: 0.75rem;
     border-radius: 12px;
-    transition: background 0.2s;
-    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    cursor: default;
     border: 1px solid transparent;
 }
 
-.aging-item:hover {
+.aging-item:not(.aging-item-clickable):hover {
     background: #f8f9fa;
     border-color: #f1f3f5;
 }
 
-[data-theme='dark'] .aging-item:hover {
+[data-theme='dark'] .aging-item:not(.aging-item-clickable):hover {
     background: #25262b;
     border-color: #2c2e33;
+}
+
+.aging-item-clickable {
+    cursor: pointer;
+}
+
+.aging-item-clickable:hover {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    transform: translateX(3px);
+}
+
+.aging-item-clickable:hover .item-id {
+    color: #3b82f6;
+}
+
+.aging-item-clickable:hover .text-muted {
+    color: #3b82f6;
+    transform: translateX(2px);
+    transition: transform 0.15s;
+}
+
+[data-theme='dark'] .aging-item-clickable:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
 }
 
 .item-icon {

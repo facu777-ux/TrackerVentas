@@ -1107,7 +1107,25 @@ function App() {
 
       {/* Bottleneck Analysis Floating Button - Solo en Dashboard */}
       {activeView === 'dashboard' && hasSearched && !loading && (
-        <BottleneckFloatingButton data={data} />
+        <BottleneckFloatingButton
+          data={data}
+          onClienteSelect={(clienteNombre) => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            handleSearch({
+              ...searchCriteria,
+              fechaDesde: '2020-01-01',
+              fechaHasta: tomorrow.toISOString().split('T')[0],
+              cliente: clienteNombre,
+              limit: 500,
+            });
+          }}
+          onCargoNavigate={(cargoId) => {
+            setActiveFilter('all');
+            setHighlightedItem({ type: 'CARGA', value: String(cargoId) });
+            scheduleHighlightCleanup(10000);
+          }}
+        />
       )}
     </div>
   );
