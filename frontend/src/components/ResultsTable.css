@@ -135,6 +135,41 @@
   border-color: #f43f5e;
 }
 
+.nota-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  background-color: var(--bg-accents-1);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+
+.nota-filter-toggle input[type="checkbox"] {
+  accent-color: #3B6D11;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.nota-filter-toggle:hover {
+  border-color: #3B6D11;
+  color: var(--text-primary);
+}
+
+.nota-filter-toggle.active {
+  background-color: rgba(59, 109, 17, 0.12);
+  border-color: #3B6D11;
+  color: #5a9e1f;
+}
+
 .table-help {
   padding: 0.5rem 1.5rem;
   background-color: var(--bg-accents-1);
@@ -819,6 +854,7 @@
 }
 
 .table-timeline-marker {
+  position: relative;
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 50%;
@@ -834,6 +870,33 @@
   transition: all 0.3s;
   box-shadow: var(--shadow-sm);
   margin-top: -0.2rem;
+}
+
+.nota-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3B6D11;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 2px solid var(--bg-primary, #0d1b2a);
+  z-index: 2;
+  cursor: default;
+  pointer-events: auto;
+}
+
+/* Cuando hay ambos NC y ND, el de NC queda a la derecha y el ND a la izquierda */
+.nota-badge-nc + .nota-badge-nd {
+  right: auto;
+  left: -7px;
 }
 
 .table-timeline-item.completed .table-timeline-marker {

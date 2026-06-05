@@ -219,6 +219,35 @@ router.post("/", async (req, res) => {
             CREATE CLUSTERED INDEX IX_Recibos ON #Recibos (EmpRC, CodFact, NroFact);
 
             -- =============================================================================
+            -- PASO 3b: Notas de Crédito/Débito asociadas a facturas en #Cargas
+            -- =============================================================================
+            IF OBJECT_ID('tempdb..#NotasAjuste') IS NOT NULL DROP TABLE #NotasAjuste;
+
+            SELECT
+                n.SAR_VTRMVA_CODEMP AS EmpNA,
+                n.SAR_VTRMVA_CODAPL AS CodFacNA,
+                n.SAR_VTRMVA_NROAPL AS NroFacNA,
+                MAX(CASE WHEN n.SAR_VTRMVA_CODFOR LIKE 'C%' THEN 1 ELSE 0 END) AS TieneNC,
+                MAX(CASE WHEN n.SAR_VTRMVA_CODFOR LIKE 'D%' THEN 1 ELSE 0 END) AS TieneND
+            INTO #NotasAjuste
+            FROM SAR_VTRMVA n WITH (NOLOCK)
+            WHERE
+                n.SAR_VTRMVA_MODFOR = 'VT'
+                AND (n.SAR_VTRMVA_CODFOR LIKE 'C%' OR n.SAR_VTRMVA_CODFOR LIKE 'D%')
+                AND n.SAR_VTRMVA_MODAPL = 'VT'
+                AND EXISTS (
+                    SELECT 1 FROM #Cargas c
+                    WHERE c.EmpreI = n.SAR_VTRMVA_CODEMP
+                      AND c.CodFac = n.SAR_VTRMVA_CODAPL
+                      AND c.NroFac = n.SAR_VTRMVA_NROAPL
+                      AND c.NroFac > 0
+                      AND c.CodFac IS NOT NULL
+                )
+            GROUP BY n.SAR_VTRMVA_CODEMP, n.SAR_VTRMVA_CODAPL, n.SAR_VTRMVA_NROAPL;
+
+            CREATE CLUSTERED INDEX IX_NotasAjuste ON #NotasAjuste (EmpNA, CodFacNA, NroFacNA);
+
+            -- =============================================================================
             -- PASO 4: QUERY FINAL - VISIBILIDAD TOTAL CON LEFT JOINs
             -- =============================================================================
             SELECT TOP (@Limit)
@@ -309,12 +338,16 @@ router.post("/", async (req, res) => {
                 gt.FecFactura,
                 
                 -- DATOS DE RECIBO COBRANZA (puede ser NULL si factura sin RC)
-                CASE 
+                CASE
                     WHEN rc.NroRC IS NULL AND gt.NroFac IS NOT NULL AND gt.NroFac > 0 THEN 'Pendiente Cobranza'
                     WHEN rc.NroRC IS NOT NULL THEN CONCAT(rc.CodRC, '-', rc.NroRC)
                     ELSE NULL
-                END AS ReciboCobranza
-                
+                END AS ReciboCobranza,
+
+                -- NOTAS DE CRÉDITO/DÉBITO asociadas a la factura
+                ISNULL(na.TieneNC, 0) AS TieneNC,
+                ISNULL(na.TieneND, 0) AS TieneND
+
             FROM #Solicitudes sol
                 -- LEFT JOIN para ver solicitudes sin PR
                 LEFT JOIN #PRBase pr
@@ -359,6 +392,10 @@ router.post("/", async (req, res) => {
                     ON gt.EmpreI = rc.EmpRC
                     AND gt.CodFac = rc.CodFact
                     AND gt.NroFac = rc.NroFact
+                LEFT JOIN #NotasAjuste na
+                    ON gt.EmpreI = na.EmpNA
+                    AND gt.CodFac = na.CodFacNA
+                    AND gt.NroFac = na.NroFacNA
             WHERE (@ClienteFiltro IS NULL 
                    OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' 
                    OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' 
@@ -455,12 +492,16 @@ router.post("/", async (req, res) => {
                 gt.FecFactura,
                 
                 -- DATOS DE RECIBO
-                CASE 
+                CASE
                     WHEN rc.NroRC IS NULL AND gt.NroFac IS NOT NULL AND gt.NroFac > 0 THEN 'Pendiente Cobranza'
                     WHEN rc.NroRC IS NOT NULL THEN CONCAT(rc.CodRC, '-', rc.NroRC)
                     ELSE NULL
-                END
-                
+                END,
+
+                -- NOTAS DE CRÉDITO/DÉBITO
+                ISNULL(na.TieneNC, 0),
+                ISNULL(na.TieneND, 0)
+
             FROM #PRBase pr
                 -- Solo PRs sin solicitud
                 LEFT JOIN #Solicitudes sol
@@ -505,7 +546,11 @@ router.post("/", async (req, res) => {
                     ON gt.EmpreI = rc.EmpRC
                     AND gt.CodFac = rc.CodFact
                     AND gt.NroFac = rc.NroFact
-                    
+                LEFT JOIN #NotasAjuste na
+                    ON gt.EmpreI = na.EmpNA
+                    AND gt.CodFac = na.CodFacNA
+                    AND gt.NroFac = na.NroFacNA
+
             WHERE sol.NroSolicitud IS NULL
                 AND (@ClienteFiltro IS NULL 
                      OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' 
@@ -535,6 +580,7 @@ router.post("/", async (req, res) => {
             DROP TABLE #PRBase;
             DROP TABLE #Cargas;
             DROP TABLE #Recibos;
+            DROP TABLE #NotasAjuste;
         `;
 
         const result = await pool
@@ -578,6 +624,103 @@ router.post("/", async (req, res) => {
             error: "Error al ejecutar la consulta",
             message: error.message,
         });
+    }
+});
+
+// GET /api/seguimiento/notas - Notas de Crédito/Débito de una o varias facturas
+router.get("/notas", async (req, res) => {
+    try {
+        const { empresa, facturas } = req.query;
+        if (!empresa || !facturas) {
+            return res.status(400).json({ success: false, error: 'Parámetros requeridos: empresa, facturas' });
+        }
+
+        const pool = await getConnection();
+
+        // facturas puede ser "FE9996-38305" o "FE9996-38305,FA0012-20338"
+        const facturaList = String(facturas).split(',').map(f => {
+            const parts = f.trim().split('-');
+            const nroFac = parseInt(parts[parts.length - 1], 10);
+            const codFac = parts.slice(0, -1).join('-');
+            return { codFac, nroFac };
+        }).filter(f => f.codFac && !isNaN(f.nroFac));
+
+        if (facturaList.length === 0) {
+            return res.status(400).json({ success: false, error: 'No se pudo parsear ninguna factura válida' });
+        }
+
+        // Construir condición IN para múltiples facturas
+        const conditions = facturaList.map((_, i) =>
+            `(SAR_VTRMVA_CODAPL = @CodFac${i} AND SAR_VTRMVA_NROAPL = @NroFac${i})`
+        ).join(' OR ');
+
+        const request = pool.request().input('Empresa', sql.VarChar(10), empresa);
+        facturaList.forEach((f, i) => {
+            request.input(`CodFac${i}`, sql.VarChar(20), f.codFac);
+            request.input(`NroFac${i}`, sql.BigInt, f.nroFac);
+        });
+
+        const result = await request.query(`
+            SELECT
+                n.SAR_VTRMVA_CODFOR AS CodigoNota,
+                n.SAR_VTRMVA_NROFOR AS NumeroNota,
+                CASE
+                    WHEN n.SAR_VTRMVA_CODFOR LIKE 'C%' THEN 'Nota de Crédito'
+                    WHEN n.SAR_VTRMVA_CODFOR LIKE 'D%' THEN 'Nota de Débito'
+                    ELSE 'Otro'
+                END AS TipoNota,
+                n.SAR_VTRMVA_CODAPL AS CodigoFactura,
+                n.SAR_VTRMVA_NROAPL AS NumeroFactura,
+                n.SAR_VT_USERID AS Usuario,
+                n.SAR_VT_FECALT AS FechaAlta,
+                -- Datos del encabezado de la nota (VTRMVH)
+                h.VTRMVH_FCHMOV AS FechaMovimiento,
+                h.VTRMVH_SUCURS AS Sucursal,
+                h.VTRMVH_TEXTOS AS Descripcion,
+                h.VTRMVH_COFFAC AS CodMoneda,
+                h.VTRMVH_CAMBIO AS TipoCambio,
+                h.VTRMVH_CAMUSS AS TipoCambioUSS,
+                h.VTRMVH_NROCAE AS NroCAE,
+                -- Descripción de moneda (GRTCOF)
+                c.GRTCOF_DESCRP AS DescripcionMoneda,
+                c.GRTCOF_SIMBOL AS SimboloMoneda,
+                -- Totales desde VTRMVC (mismo origen que usa Softland internamente)
+                (SELECT SUM(vc.VTRMVC_IMPEXT) FROM VTRMVC vc WITH (NOLOCK)
+                 WHERE vc.VTRMVC_CODEMP = @Empresa
+                   AND vc.VTRMVC_MODFOR = n.SAR_VTRMVA_MODFOR
+                   AND vc.VTRMVC_CODFOR = n.SAR_VTRMVA_CODFOR
+                   AND vc.VTRMVC_NROFOR = n.SAR_VTRMVA_NROFOR
+                   AND vc.VTRMVC_MODAPL = vc.VTRMVC_MODFOR
+                   AND vc.VTRMVC_CODAPL = vc.VTRMVC_CODFOR
+                   AND vc.VTRMVC_NROAPL = vc.VTRMVC_NROFOR) AS ImporteExt,
+                (SELECT SUM(vc.VTRMVC_IMPNAC) FROM VTRMVC vc WITH (NOLOCK)
+                 WHERE vc.VTRMVC_CODEMP = @Empresa
+                   AND vc.VTRMVC_MODFOR = n.SAR_VTRMVA_MODFOR
+                   AND vc.VTRMVC_CODFOR = n.SAR_VTRMVA_CODFOR
+                   AND vc.VTRMVC_NROFOR = n.SAR_VTRMVA_NROFOR
+                   AND vc.VTRMVC_MODAPL = vc.VTRMVC_MODFOR
+                   AND vc.VTRMVC_CODAPL = vc.VTRMVC_CODFOR
+                   AND vc.VTRMVC_NROAPL = vc.VTRMVC_NROFOR) AS ImporteNac
+            FROM SAR_VTRMVA n WITH (NOLOCK)
+            LEFT JOIN VTRMVH h WITH (NOLOCK)
+                ON h.VTRMVH_CODEMP = @Empresa
+                AND h.VTRMVH_MODFOR = n.SAR_VTRMVA_MODFOR
+                AND h.VTRMVH_CODFOR = n.SAR_VTRMVA_CODFOR
+                AND h.VTRMVH_NROFOR = n.SAR_VTRMVA_NROFOR
+            LEFT JOIN GRTCOF c WITH (NOLOCK)
+                ON c.GRTCOF_CODCOF = h.VTRMVH_COFFAC
+            WHERE n.SAR_VTRMVA_CODEMP = @Empresa
+                AND n.SAR_VTRMVA_MODFOR = 'VT'
+                AND (n.SAR_VTRMVA_CODFOR LIKE 'C%' OR n.SAR_VTRMVA_CODFOR LIKE 'D%')
+                AND n.SAR_VTRMVA_MODAPL = 'VT'
+                AND (${conditions})
+            ORDER BY n.SAR_VT_FECALT DESC
+        `);
+
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error("Error al obtener notas de ajuste:", error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

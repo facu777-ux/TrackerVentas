@@ -58,6 +58,8 @@ function App() {
   const [chileExchangeRate, setChileExchangeRate] = useState(0); // SII Chile
   const [highlightedItem, setHighlightedItem] = useState(null);
   const highlightTimeoutRef = useRef(null);
+  const [filterConNC, setFilterConNC] = useState(false);
+  const [filterConND, setFilterConND] = useState(false);
 
   const scheduleHighlightCleanup = (ms = 10000) => {
     if (highlightTimeoutRef.current) {
@@ -579,31 +581,45 @@ function App() {
   }, [data, searchTerm, searchCarga]);
 
   const filteredData = React.useMemo(() => {
-    // Aplicar filtros de categoría (tabs)
+    let result;
     switch (activeFilter) {
       case 'pagados':
-        return searchedData.filter(item => 
+        result = searchedData.filter(item =>
           item.ReciboCobranza && !item.ReciboCobranza.includes('Pendiente')
         );
+        break;
       case 'facturados':
-        return searchedData.filter(item =>
-          item.CodigoCarga && 
+        result = searchedData.filter(item =>
+          item.CodigoCarga &&
           (item.FacturaAsociadaOP && !item.FacturaAsociadaOP.includes('Pendiente') && !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA')) &&
           (!item.ReciboCobranza || item.ReciboCobranza.includes('Pendiente'))
         );
+        break;
       case 'enCarga':
-        return searchedData.filter(item =>
-          item.CodigoCarga && 
-          (!item.FacturaAsociadaOP || 
+        result = searchedData.filter(item =>
+          item.CodigoCarga &&
+          (!item.FacturaAsociadaOP ||
            item.FacturaAsociadaOP.includes('Pendiente') ||
            item.FacturaAsociadaOP.includes('CARGA NO FACTURADA'))
         );
+        break;
       case 'presupuestos':
-        return searchedData.filter(item => !item.CodigoCarga);
+        result = searchedData.filter(item => !item.CodigoCarga);
+        break;
       default:
-        return searchedData;
+        result = searchedData;
     }
-  }, [searchedData, activeFilter]);
+
+    if (filterConNC || filterConND) {
+      result = result.filter(item => {
+        if (filterConNC && filterConND) return !!item.TieneNC || !!item.TieneND;
+        if (filterConNC) return !!item.TieneNC;
+        return !!item.TieneND;
+      });
+    }
+
+    return result;
+  }, [searchedData, activeFilter, filterConNC, filterConND]);
 
   // Efecto para actualizar estadísticas cuando cambian los datos o filtros locales
   useEffect(() => {
@@ -1061,6 +1077,10 @@ function App() {
                   chileExchangeRate={chileExchangeRate}
                   searchCriteria={searchCriteria}
                   highlightItem={highlightedItem}
+                  filterConNC={filterConNC}
+                  setFilterConNC={setFilterConNC}
+                  filterConND={filterConND}
+                  setFilterConND={setFilterConND}
                 />
               )}
             </div>

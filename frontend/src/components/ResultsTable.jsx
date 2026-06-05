@@ -28,6 +28,7 @@ import {
 import { format, differenceInDays } from 'date-fns';
 import * as XLSX from 'xlsx';
 import DetailModal from './DetailModal';
+import NotaAjusteModal from './NotaAjusteModal';
 import './ResultsTable.css';
 
 const ResultsTable = ({ 
@@ -45,7 +46,11 @@ const ResultsTable = ({
     exchangeRate = 1000,
     chileExchangeRate = 900,
     searchCriteria = null,
-    highlightItem = null
+    highlightItem = null,
+    filterConNC = false,
+    setFilterConNC = () => {},
+    filterConND = false,
+    setFilterConND = () => {}
 }) => {
     // Memoize budget contexts to avoid O(N^2) complexity on every render
     const budgetContexts = React.useMemo(() => {
@@ -171,6 +176,8 @@ const ResultsTable = ({
     const [itemsPerPage, setItemsPerPage] = useState(25);
     const [selectedItem, setSelectedItem] = useState(null);
     const [modalMode, setModalMode] = useState(null); // 'presupuesto', 'carga', 'factura', 'recibo', 'all'
+    const [notaModalItem, setNotaModalItem] = useState(null); // item para NotaAjusteModal
+    const [notaModalFacturas, setNotaModalFacturas] = useState(null); // string o array de facturas
     const [estadoSubFilter, setEstadoSubFilter] = useState('all'); // 'all', 'facturado', 'pagado'
     const [showEstadoModal, setShowEstadoModal] = useState(false);
 
@@ -491,8 +498,8 @@ const ResultsTable = ({
                 const receiptSet = new Set();
 
                 carga.facturas.forEach(f => {
-                    if (f.FacturaAsociadaOP && 
-                        !f.FacturaAsociadaOP.includes('CARGA NO FACTURADA') && 
+                    if (f.FacturaAsociadaOP &&
+                        !f.FacturaAsociadaOP.includes('CARGA NO FACTURADA') &&
                         !f.FacturaAsociadaOP.includes('Pendiente') &&
                         f.FacturaAsociadaOP !== 'Varios Comprobantes') {
                         invoiceSet.add(f.FacturaAsociadaOP);
@@ -501,6 +508,8 @@ const ResultsTable = ({
                         f.ReciboCobranza !== 'Varios Recibos') {
                         receiptSet.add(f.ReciboCobranza);
                     }
+                    if (f.TieneNC) carga.info.TieneNC = true;
+                    if (f.TieneND) carga.info.TieneND = true;
                 });
 
                 // Actualizar info de la carga con banderas multi-doc (sobre la copia de info)
@@ -1405,13 +1414,42 @@ const ResultsTable = ({
                                 }
                             }}
                         >
-                            <div 
+                            <div
                                 className={`table-timeline-marker ${step.isMulti ? 'stacked' : ''}`}
-                                style={isHighlightedCircle ? {
-                                    zIndex: 10
-                                } : {}}
+                                style={isHighlightedCircle ? { zIndex: 10 } : {}}
+                                title={
+                                    step.id === 3 && step.completed && !item.TieneNC && !item.TieneND
+                                        ? 'Sin notas de crédito/débito asociadas'
+                                        : undefined
+                                }
                             >
                                 {step.id}
+                                {step.id === 3 && step.completed && !!item.TieneNC && (
+                                    <span
+                                        className="nota-badge nota-badge-nc"
+                                        title="Tiene Nota de Crédito — clic para ver detalle"
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            setNotaModalItem(item);
+                                            setNotaModalFacturas(
+                                                item.isMultiInvoice ? item.individualInvoices : item.FacturaAsociadaOP
+                                            );
+                                        }}
+                                    >NC</span>
+                                )}
+                                {step.id === 3 && step.completed && !!item.TieneND && (
+                                    <span
+                                        className="nota-badge nota-badge-nd"
+                                        title="Tiene Nota de Débito — clic para ver detalle"
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            setNotaModalItem(item);
+                                            setNotaModalFacturas(
+                                                item.isMultiInvoice ? item.individualInvoices : item.FacturaAsociadaOP
+                                            );
+                                        }}
+                                    >ND</span>
+                                )}
                             </div>
                         <div className="table-timeline-content">
                             <h4 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -1638,9 +1676,27 @@ const ResultsTable = ({
                         />
                     </div>
                     
+                    {/* Filtros NC / ND */}
+                    <label className={`nota-filter-toggle ${filterConNC ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Crédito">
+                        <input
+                            type="checkbox"
+                            checked={filterConNC}
+                            onChange={e => setFilterConNC(e.target.checked)}
+                        />
+                        Con NC
+                    </label>
+                    <label className={`nota-filter-toggle ${filterConND ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Débito">
+                        <input
+                            type="checkbox"
+                            checked={filterConND}
+                            onChange={e => setFilterConND(e.target.checked)}
+                        />
+                        Con ND
+                    </label>
+
                     {/* Botón Expandir/Contraer Todo */}
-                    <button 
-                        onClick={toggleAllVisible} 
+                    <button
+                        onClick={toggleAllVisible}
                         className={`btn-toggle-all ${allExpanded ? 'active' : ''}`}
                         title={allExpanded ? 'Contraer todos los registros' : 'Expandir todos los registros'}
                     >
@@ -2179,6 +2235,15 @@ const ResultsTable = ({
 
             {/* Popover de Selección de Documentos */}
             {activePopover && renderDocumentPopover()}
+
+            {/* Modal de Notas de Crédito/Débito */}
+            {notaModalItem && (
+                <NotaAjusteModal
+                    item={notaModalItem}
+                    facturas={notaModalFacturas}
+                    onClose={() => { setNotaModalItem(null); setNotaModalFacturas(null); }}
+                />
+            )}
         </div>
     );
 };

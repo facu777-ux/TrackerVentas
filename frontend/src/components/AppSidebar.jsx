@@ -86,7 +86,21 @@ const AppSidebar = ({ activeView, setActiveView, isCollapsed, onCollapse, isMobi
           ))}
         </div>
 
-        {/* Administración oculta temporalmente */}
+        <div className="nav-section">
+          {!isCollapsed && <span className="section-label">Administración</span>}
+          {adminItems.map((item) => (
+            <button
+              key={item.id}
+              className={`nav-item ${activeView === item.id ? 'active' : ''}`}
+              onClick={() => handleNavClick(item.id)}
+              title={isCollapsed ? item.title : ''}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              {!isCollapsed && <span className="nav-label">{item.title}</span>}
+              {activeView === item.id && !isCollapsed && <div className="active-glow"></div>}
+            </button>
+          ))}
+        </div>
 
         <div className="sidebar-filters-container">
             {children}

@@ -53,6 +53,16 @@ export const seguimientoAPI = {
     return response.data;
   },
 
+  // Obtener notas de crédito/débito de una o varias facturas
+  getNotasAjuste: async (empresa, facturas) => {
+    // facturas: string "FE9996-38305" o array ["FE9996-38305", "FA0012-20338"]
+    const facturasStr = Array.isArray(facturas) ? facturas.join(',') : facturas;
+    const response = await api.get("/seguimiento/notas", {
+      params: { empresa, facturas: facturasStr },
+    });
+    return response.data;
+  },
+
   // Health check
   healthCheck: async () => {
     const response = await api.get("/health");
