@@ -374,7 +374,7 @@ const AgingReportModal = ({ onClose, onClienteSelect }) => {
                         </div>
                         {/* Selector empresa */}
                         <div className="empresa-selector">
-                            <button className="empresa-btn" onClick={() => setDropOpen(o => !o)}>
+                            <button className="empresa-btn" onClick={() => { setDropOpen(o => !o); setVistaDrop(false); }}>
                                 <span className="empresa-btn-text">{empresaLabel}</span>
                                 <ChevronDown size={14} className={dropOpen ? 'rotated' : ''} />
                             </button>
