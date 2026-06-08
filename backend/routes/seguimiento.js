@@ -248,6 +248,91 @@ router.post("/", async (req, res) => {
             CREATE CLUSTERED INDEX IX_NotasAjuste ON #NotasAjuste (EmpNA, CodFacNA, NroFacNA);
 
             -- =============================================================================
+            -- PASO 3c: Saldo ajustado por factura (ImporteFac - SumNC + SumND - SumRC)
+            -- =============================================================================
+            IF OBJECT_ID('tempdb..#MontosFac') IS NOT NULL DROP TABLE #MontosFac;
+
+            SELECT
+                base.EmpFac,
+                base.CodFac,
+                base.NroFac,
+                base.ImporteFac,
+                base.SumNC,
+                base.SumND,
+                base.SumRC,
+                ISNULL(base.ImporteFac, 0) + ISNULL(base.SumNC, 0) + ISNULL(base.SumND, 0) - ISNULL(base.SumRC, 0) AS SaldoAjustado,
+                base.CodMonedaFac,
+                base.SimboloMonedaFac
+            INTO #MontosFac
+            FROM (
+                SELECT
+                    c.EmpreI AS EmpFac,
+                    c.CodFac,
+                    c.NroFac,
+                    (SELECT SUM(CASE WHEN vc.VTRMVC_IMPEXT = 0 THEN vc.VTRMVC_IMPNAC ELSE vc.VTRMVC_IMPEXT END)
+                     FROM VTRMVC vc WITH (NOLOCK)
+                     WHERE vc.VTRMVC_CODEMP = c.EmpreI
+                       AND vc.VTRMVC_MODFOR = 'VT'
+                       AND vc.VTRMVC_CODFOR = c.CodFac
+                       AND vc.VTRMVC_NROFOR = c.NroFac
+                       AND vc.VTRMVC_MODAPL = vc.VTRMVC_MODFOR
+                       AND vc.VTRMVC_CODAPL = vc.VTRMVC_CODFOR
+                       AND vc.VTRMVC_NROAPL = vc.VTRMVC_NROFOR) AS ImporteFac,
+                    (SELECT SUM(CASE WHEN vc.VTRMVC_IMPEXT = 0 THEN vc.VTRMVC_IMPNAC ELSE vc.VTRMVC_IMPEXT END)
+                     FROM SAR_VTRMVA n WITH (NOLOCK)
+                     INNER JOIN VTRMVC vc WITH (NOLOCK)
+                       ON vc.VTRMVC_CODEMP = n.SAR_VTRMVA_CODEMP
+                       AND vc.VTRMVC_MODFOR = n.SAR_VTRMVA_MODFOR
+                       AND vc.VTRMVC_CODFOR = n.SAR_VTRMVA_CODFOR
+                       AND vc.VTRMVC_NROFOR = n.SAR_VTRMVA_NROFOR
+                       AND vc.VTRMVC_MODAPL = vc.VTRMVC_MODFOR
+                       AND vc.VTRMVC_CODAPL = vc.VTRMVC_CODFOR
+                       AND vc.VTRMVC_NROAPL = vc.VTRMVC_NROFOR
+                     WHERE n.SAR_VTRMVA_CODEMP = c.EmpreI
+                       AND n.SAR_VTRMVA_MODFOR = 'VT'
+                       AND n.SAR_VTRMVA_CODFOR LIKE 'C%'
+                       AND n.SAR_VTRMVA_MODAPL = 'VT'
+                       AND n.SAR_VTRMVA_CODAPL = c.CodFac
+                       AND n.SAR_VTRMVA_NROAPL = c.NroFac) AS SumNC,
+                    (SELECT SUM(CASE WHEN vc.VTRMVC_IMPEXT = 0 THEN vc.VTRMVC_IMPNAC ELSE vc.VTRMVC_IMPEXT END)
+                     FROM SAR_VTRMVA n WITH (NOLOCK)
+                     INNER JOIN VTRMVC vc WITH (NOLOCK)
+                       ON vc.VTRMVC_CODEMP = n.SAR_VTRMVA_CODEMP
+                       AND vc.VTRMVC_MODFOR = n.SAR_VTRMVA_MODFOR
+                       AND vc.VTRMVC_CODFOR = n.SAR_VTRMVA_CODFOR
+                       AND vc.VTRMVC_NROFOR = n.SAR_VTRMVA_NROFOR
+                       AND vc.VTRMVC_MODAPL = vc.VTRMVC_MODFOR
+                       AND vc.VTRMVC_CODAPL = vc.VTRMVC_CODFOR
+                       AND vc.VTRMVC_NROAPL = vc.VTRMVC_NROFOR
+                     WHERE n.SAR_VTRMVA_CODEMP = c.EmpreI
+                       AND n.SAR_VTRMVA_MODFOR = 'VT'
+                       AND n.SAR_VTRMVA_CODFOR LIKE 'D%'
+                       AND n.SAR_VTRMVA_MODAPL = 'VT'
+                       AND n.SAR_VTRMVA_CODAPL = c.CodFac
+                       AND n.SAR_VTRMVA_NROAPL = c.NroFac) AS SumND,
+                    (SELECT SUM(CASE WHEN vc.VTRMVC_IMPEXT = 0 THEN vc.VTRMVC_IMPNAC ELSE vc.VTRMVC_IMPEXT END)
+                     FROM VTRMVC vc WITH (NOLOCK)
+                     WHERE vc.VTRMVC_CODEMP = c.EmpreI
+                       AND vc.VTRMVC_MODFOR = 'VT'
+                       AND vc.VTRMVC_CODFOR = 'RC'
+                       AND vc.VTRMVC_MODAPL = 'VT'
+                       AND vc.VTRMVC_CODAPL = c.CodFac
+                       AND vc.VTRMVC_NROAPL = c.NroFac) AS SumRC,
+                    h.VTRMVH_COFFAC AS CodMonedaFac,
+                    gc.GRTCOF_SIMBOL AS SimboloMonedaFac
+                FROM (SELECT DISTINCT EmpreI, CodFac, NroFac FROM #Cargas WHERE CodFac IS NOT NULL AND NroFac > 0) c
+                LEFT JOIN VTRMVH h WITH (NOLOCK)
+                    ON h.VTRMVH_CODEMP = c.EmpreI
+                    AND h.VTRMVH_MODFOR = 'VT'
+                    AND h.VTRMVH_CODFOR = c.CodFac
+                    AND h.VTRMVH_NROFOR = c.NroFac
+                LEFT JOIN GRTCOF gc WITH (NOLOCK)
+                    ON gc.GRTCOF_CODCOF = h.VTRMVH_COFFAC
+            ) base;
+
+            CREATE CLUSTERED INDEX IX_MontosFac ON #MontosFac (EmpFac, CodFac, NroFac);
+
+            -- =============================================================================
             -- PASO 4: QUERY FINAL - VISIBILIDAD TOTAL CON LEFT JOINs
             -- =============================================================================
             SELECT TOP (@Limit)
@@ -346,7 +431,16 @@ router.post("/", async (req, res) => {
 
                 -- NOTAS DE CRÉDITO/DÉBITO asociadas a la factura
                 ISNULL(na.TieneNC, 0) AS TieneNC,
-                ISNULL(na.TieneND, 0) AS TieneND
+                ISNULL(na.TieneND, 0) AS TieneND,
+
+                -- MONTOS AJUSTADOS POR FACTURA
+                mf.ImporteFac,
+                mf.SumNC,
+                mf.SumND,
+                mf.SumRC,
+                mf.SaldoAjustado,
+                mf.CodMonedaFac,
+                mf.SimboloMonedaFac
 
             FROM #Solicitudes sol
                 -- LEFT JOIN para ver solicitudes sin PR
@@ -396,9 +490,13 @@ router.post("/", async (req, res) => {
                     ON gt.EmpreI = na.EmpNA
                     AND gt.CodFac = na.CodFacNA
                     AND gt.NroFac = na.NroFacNA
-            WHERE (@ClienteFiltro IS NULL 
-                   OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%' 
-                   OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%' 
+                LEFT JOIN #MontosFac mf
+                    ON gt.EmpreI = mf.EmpFac
+                    AND gt.CodFac = mf.CodFac
+                    AND gt.NroFac = mf.NroFac
+            WHERE (@ClienteFiltro IS NULL
+                   OR pr.FCRMVH_NROCTA LIKE '%' + @ClienteFiltro + '%'
+                   OR cl.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%'
                    OR gt.NomClientFacturar LIKE '%' + @ClienteFiltro + '%'
                    -- Búsqueda robusta por si el join a cl falló o hay espacios
                    OR EXISTS (SELECT 1 FROM VTMCLH cl2 WHERE cl2.VTMCLH_NROCTA = pr.FCRMVH_NROCTA AND cl2.VTMCLH_NOMBRE LIKE '%' + @ClienteFiltro + '%')
@@ -500,7 +598,16 @@ router.post("/", async (req, res) => {
 
                 -- NOTAS DE CRÉDITO/DÉBITO
                 ISNULL(na.TieneNC, 0),
-                ISNULL(na.TieneND, 0)
+                ISNULL(na.TieneND, 0),
+
+                -- MONTOS AJUSTADOS POR FACTURA
+                mf.ImporteFac,
+                mf.SumNC,
+                mf.SumND,
+                mf.SumRC,
+                mf.SaldoAjustado,
+                mf.CodMonedaFac,
+                mf.SimboloMonedaFac
 
             FROM #PRBase pr
                 -- Solo PRs sin solicitud
@@ -550,6 +657,10 @@ router.post("/", async (req, res) => {
                     ON gt.EmpreI = na.EmpNA
                     AND gt.CodFac = na.CodFacNA
                     AND gt.NroFac = na.NroFacNA
+                LEFT JOIN #MontosFac mf
+                    ON gt.EmpreI = mf.EmpFac
+                    AND gt.CodFac = mf.CodFac
+                    AND gt.NroFac = mf.NroFac
 
             WHERE sol.NroSolicitud IS NULL
                 AND (@ClienteFiltro IS NULL 
@@ -581,6 +692,7 @@ router.post("/", async (req, res) => {
             DROP TABLE #Cargas;
             DROP TABLE #Recibos;
             DROP TABLE #NotasAjuste;
+            DROP TABLE #MontosFac;
         `;
 
         const result = await pool

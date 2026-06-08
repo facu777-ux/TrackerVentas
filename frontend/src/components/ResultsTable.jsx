@@ -347,6 +347,7 @@ const ResultsTable = ({
                     items: [],      // Array para guardar todos los items crudos del PR
                     cargas: {},
                     budgetTotal: 0,
+                    facturasContadas: new Set(),
                     maxFecha: item.FchMovimiento || item.FchAltaRegistro
                 };
             }
@@ -376,8 +377,17 @@ const ResultsTable = ({
                 groups[presupuestoKey].maxFecha = itemFecha;
             }
 
-            // Sumar al total del presupuesto
-            groups[presupuestoKey].budgetTotal += (item.TotalItem || 0);
+            // Sumar saldo ajustado deduplicando por factura; fallback a TotalItem si no hay factura real
+            const fKey = item.FacturaAsociadaOP;
+            const tieneFactura = fKey && !fKey.includes('Pendiente') && !fKey.includes('CARGA NO FACTURADA');
+            if (tieneFactura && item.SaldoAjustado != null) {
+                if (!groups[presupuestoKey].facturasContadas.has(fKey)) {
+                    groups[presupuestoKey].facturasContadas.add(fKey);
+                    groups[presupuestoKey].budgetTotal += parseFloat(item.SaldoAjustado) || 0;
+                }
+            } else {
+                groups[presupuestoKey].budgetTotal += parseFloat(item.TotalItem) || 0;
+            }
 
             // Si tiene carga, agrupar por carga
             if (item.CodigoCarga) {
@@ -497,12 +507,16 @@ const ResultsTable = ({
                 const invoiceSet = new Set();
                 const receiptSet = new Set();
 
+                const saldosPorFactura = new Map();
                 carga.facturas.forEach(f => {
                     if (f.FacturaAsociadaOP &&
                         !f.FacturaAsociadaOP.includes('CARGA NO FACTURADA') &&
                         !f.FacturaAsociadaOP.includes('Pendiente') &&
                         f.FacturaAsociadaOP !== 'Varios Comprobantes') {
                         invoiceSet.add(f.FacturaAsociadaOP);
+                        if (f.SaldoAjustado != null && !saldosPorFactura.has(f.FacturaAsociadaOP)) {
+                            saldosPorFactura.set(f.FacturaAsociadaOP, parseFloat(f.SaldoAjustado) || 0);
+                        }
                     }
                     if (f.ReciboCobranza && !f.ReciboCobranza.includes('Pendiente') &&
                         f.ReciboCobranza !== 'Varios Recibos') {
@@ -511,6 +525,15 @@ const ResultsTable = ({
                     if (f.TieneNC) carga.info.TieneNC = true;
                     if (f.TieneND) carga.info.TieneND = true;
                 });
+
+                if (saldosPorFactura.size > 0) {
+                    carga.info.SaldoAjustadoCarga = Array.from(saldosPorFactura.values()).reduce((a, b) => a + b, 0);
+                    const firstFac = carga.facturas.find(f => f.SaldoAjustado != null);
+                    if (firstFac) {
+                        carga.info.SimboloMonedaFac = firstFac.SimboloMonedaFac;
+                        carga.info.CodMonedaFac = firstFac.CodMonedaFac;
+                    }
+                }
 
                 // Actualizar info de la carga con banderas multi-doc (sobre la copia de info)
                 if (invoiceSet.size > 1) {
@@ -1466,6 +1489,20 @@ const ResultsTable = ({
                                 )}
                             </h4>
                             <p title={step.sublabel}>{step.sublabel}</p>
+                            {step.id === 3 && step.completed && item.SaldoAjustadoCarga != null && (
+                                <small
+                                    title="Saldo ajustado (Factura − NC + ND − Recibos)"
+                                    style={{
+                                        color: item.SaldoAjustadoCarga === 0 ? '#5a9e1f' : 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        fontSize: '0.68rem',
+                                        display: 'block',
+                                        marginTop: '2px',
+                                    }}
+                                >
+                                    Saldo: {item.SimboloMonedaFac || '$'} {parseFloat(item.SaldoAjustadoCarga).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </small>
+                            )}
                             {step.date && <small>{step.date}</small>}
                         </div>
                     </div>
