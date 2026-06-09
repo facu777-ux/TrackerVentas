@@ -645,47 +645,36 @@ function App() {
         });
     }
 
-    const presupuestosUnicos = {};
+    // Count unique presupuesto groups per filter, mirroring the table's filteredData logic.
+    // A presupuesto can appear in multiple categories if it has items in different states.
+    const totalPks = new Set();
+    const pkSets = { presupuestos: new Set(), enCarga: new Set(), facturados: new Set(), pagados: new Set() };
+
     baseForStats.forEach(item => {
-        const nroPR = item.NroPR || `SOL-${item.NroSolicitud}`;
+        const nroPR = item.NroPR || item.NroSolicitud;
         const empresa = item.FCRMVH_CODEMP || item.EmpresaSolicitud || 'SE-';
         const pk = `${empresa}-${nroPR}`;
-        
-        if (!presupuestosUnicos[pk]) {
-            presupuestosUnicos[pk] = { 
-                tieneCarga: false, 
-                tieneFactura: false, 
-                tienePago: false 
-            };
-        }
+        totalPks.add(pk);
 
-        const hasCarga = !!item.CodigoCarga;
-        const hasInvoice = item.FacturaAsociadaOP && 
-                          !item.FacturaAsociadaOP.includes('Pendiente') && 
+        const hasInvoice = item.FacturaAsociadaOP &&
+                          !item.FacturaAsociadaOP.includes('Pendiente') &&
                           !item.FacturaAsociadaOP.includes('CARGA NO FACTURADA');
-        const hasPayment = item.ReciboCobranza && 
-                          !item.ReciboCobranza.includes('Pendiente');
+        const hasPago = item.ReciboCobranza &&
+                       !item.ReciboCobranza.includes('Pendiente');
 
-        if (hasCarga) presupuestosUnicos[pk].tieneCarga = true;
-        if (hasInvoice) presupuestosUnicos[pk].tieneFactura = true;
-        if (hasPayment) presupuestosUnicos[pk].tienePago = true;
+        if (!item.CodigoCarga) pkSets.presupuestos.add(pk);
+        if (item.CodigoCarga && (!item.FacturaAsociadaOP || item.FacturaAsociadaOP.includes('Pendiente') || item.FacturaAsociadaOP.includes('CARGA NO FACTURADA'))) pkSets.enCarga.add(pk);
+        if (item.CodigoCarga && hasInvoice && !hasPago) pkSets.facturados.add(pk);
+        if (hasPago) pkSets.pagados.add(pk);
     });
 
-    const statsCount = { 
-        total: Object.keys(presupuestosUnicos).length, 
-        pagados: 0, 
-        facturados: 0, 
-        enCarga: 0, 
-        presupuestos: 0 
-    };
-
-    Object.values(presupuestosUnicos).forEach(p => {
-        if (!p.tieneCarga) statsCount.presupuestos++;
-        else if (p.tienePago) statsCount.pagados++;
-        else if (p.tieneFactura) statsCount.facturados++;
-        else statsCount.enCarga++;
+    setStats({
+        total: totalPks.size,
+        presupuestos: pkSets.presupuestos.size,
+        enCarga: pkSets.enCarga.size,
+        facturados: pkSets.facturados.size,
+        pagados: pkSets.pagados.size,
     });
-    setStats(statsCount);
   }, [data, searchTerm, searchCarga]);
 
   const handleStatCardClick = (filterType) => {
