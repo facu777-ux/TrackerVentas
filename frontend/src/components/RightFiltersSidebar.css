@@ -7,7 +7,7 @@
   background: var(--bg-surface);
   border-left: 1px solid var(--border-primary);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
-  z-index: 10001;
+  z-index: 10010;
   display: flex;
   flex-direction: column;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -26,7 +26,7 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
-  z-index: 10000;
+  z-index: 10009;
   animation: fadeIn 0.3s ease;
 }
 
