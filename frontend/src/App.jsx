@@ -21,8 +21,7 @@ function App() {
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [activeFilter, setActiveFilter] = useState('enCarga'); // Default: 'enCarga' (No Facturados)
-  const [searchTerm, setSearchTerm] = useState(''); 
-  const [searchCarga, setSearchCarga] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({
     total: 0,
     pagados: 0,
@@ -493,16 +492,11 @@ function App() {
     }
 
     // Filtro local para mejorar foco visual en la tabla tras la búsqueda.
-    if (normalizedKind === 'PR') {
+    if (normalizedKind === 'PR' || normalizedKind === 'CARGA') {
       setSearchTerm(String(id));
-      setSearchCarga('');
-    } else if (normalizedKind === 'CARGA') {
-      setSearchCarga(String(id));
-      setSearchTerm('');
     } else {
       // Evita ambigüedad por matching local parcial (ej: RECIBO 6843 vs FACTURA 36843)
       setSearchTerm('');
-      setSearchCarga('');
     }
 
     setActiveView(targetView === 'logistica' ? 'logistica' : 'dashboard');
@@ -531,9 +525,7 @@ function App() {
     setSearchCriteria(filtros);
     setError(null);
     setActiveFilter('all');
-    // Limpia filtros locales para evitar arrastre entre búsquedas manuales y del bot.
     setSearchTerm('');
-    setSearchCarga('');
 
     try {
       const response = await seguimientoAPI.buscarSeguimiento(filtros);
@@ -559,26 +551,16 @@ function App() {
 
   // 4. Lógica de Procesamiento de Datos (Memorizada)
   const searchedData = React.useMemo(() => {
-    let base = data;
-    if (searchTerm || searchCarga) {
-      base = base.filter(item => {
-        const searchLower = searchTerm.toLowerCase();
-        const cargaLower = searchCarga.toLowerCase();
-        const matchesGlobal = !searchTerm || (
-          item.NroPR?.toString().includes(searchLower) ||
-          item.NomCliente?.toLowerCase().includes(searchLower) ||
-          item.DescrpProd?.toLowerCase().includes(searchLower) ||
-          item.CodigoCarga?.toString().includes(searchLower) ||
-          item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
-        );
-        const matchesCarga = !searchCarga || (
-          item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
-        );
-        return matchesGlobal && matchesCarga;
-      });
-    }
-    return base;
-  }, [data, searchTerm, searchCarga]);
+    if (!searchTerm) return data;
+    const searchLower = searchTerm.toLowerCase();
+    return data.filter(item =>
+      item.NroPR?.toString().includes(searchLower) ||
+      item.NomCliente?.toLowerCase().includes(searchLower) ||
+      item.DescrpProd?.toLowerCase().includes(searchLower) ||
+      item.CodigoCarga?.toString().includes(searchLower) ||
+      item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
+    );
+  }, [data, searchTerm]);
 
   const filteredData = React.useMemo(() => {
     let result;
@@ -625,24 +607,16 @@ function App() {
   useEffect(() => {
     if (!data.length) return;
 
-    // Solo aplicamos el filtrado por searchTerm/searchCarga para las cards de stats
     let baseForStats = data;
-    if (searchTerm || searchCarga) {
-        baseForStats = data.filter(item => {
-            const searchLower = searchTerm.toLowerCase();
-            const cargaLower = searchCarga.toLowerCase();
-            const matchesGlobal = !searchTerm || (
-                item.NroPR?.toString().includes(searchLower) ||
-                item.NomCliente?.toLowerCase().includes(searchLower) ||
-                item.DescrpProd?.toLowerCase().includes(searchLower) ||
-                item.CodigoCarga?.toString().includes(searchLower) ||
-                item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
-            );
-            const matchesCarga = !searchCarga || (
-                item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
-            );
-            return matchesGlobal && matchesCarga;
-        });
+    if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        baseForStats = data.filter(item =>
+            item.NroPR?.toString().includes(searchLower) ||
+            item.NomCliente?.toLowerCase().includes(searchLower) ||
+            item.DescrpProd?.toLowerCase().includes(searchLower) ||
+            item.CodigoCarga?.toString().includes(searchLower) ||
+            item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
+        );
     }
 
     // Count unique presupuesto groups per filter, mirroring the table's filteredData logic.
@@ -675,7 +649,7 @@ function App() {
         facturados: pkSets.facturados.size,
         pagados: pkSets.pagados.size,
     });
-  }, [data, searchTerm, searchCarga]);
+  }, [data, searchTerm]);
 
   const handleStatCardClick = (filterType) => {
     setActiveFilter(filterType);
@@ -1058,8 +1032,6 @@ function App() {
                   isMobile={isMobile}
                   searchTerm={searchTerm}
                   setSearchTerm={setSearchTerm}
-                  searchCarga={searchCarga}
-                  setSearchCarga={setSearchCarga}
                   displayCurrency={displayCurrency}
                   setDisplayCurrency={setDisplayCurrency}
                   exchangeRate={exchangeRate}

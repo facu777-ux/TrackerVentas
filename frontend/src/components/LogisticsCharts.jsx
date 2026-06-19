@@ -6,33 +6,21 @@ import {
 import { TrendingUp, PieChart as PieIcon, BarChart3, Info, HelpCircle } from 'lucide-react';
 import './LogisticsCharts.css';
 
-const LogisticsCharts = ({ data, searchTerm = '', searchCarga = '', displayCurrency = 'ARS', exchangeRate = 1000, chileExchangeRate = 900 }) => {
+const LogisticsCharts = ({ data, searchTerm = '', displayCurrency = 'ARS', exchangeRate = 1000, chileExchangeRate = 900 }) => {
     const [activePieIndex, setActivePieIndex] = React.useState(null);
     const [activeBarIndex, setActiveBarIndex] = React.useState(null);
 
-    // 1. Aplicar filtros globales de búsqueda a los datos antes de procesar
     const processedData = React.useMemo(() => {
-        if (!searchTerm && !searchCarga) return data;
-        
+        if (!searchTerm) return data;
         const searchLower = searchTerm.toLowerCase();
-        const cargaLower = searchCarga.toLowerCase();
-
-        return data.filter(item => {
-            const matchesGlobal = !searchTerm || (
-                item.NroPR?.toString().includes(searchLower) ||
-                item.NomCliente?.toLowerCase().includes(searchLower) ||
-                item.DescrpProd?.toLowerCase().includes(searchLower) ||
-                item.CodigoCarga?.toString().includes(searchLower) ||
-                item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
-            );
-
-            const matchesCarga = !searchCarga || (
-                item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
-            );
-
-            return matchesGlobal && matchesCarga;
-        });
-    }, [data, searchTerm, searchCarga]);
+        return data.filter(item =>
+            item.NroPR?.toString().includes(searchLower) ||
+            item.NomCliente?.toLowerCase().includes(searchLower) ||
+            item.DescrpProd?.toLowerCase().includes(searchLower) ||
+            item.CodigoCarga?.toString().includes(searchLower) ||
+            item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
+        );
+    }, [data, searchTerm]);
 
     // 2. Data Processing for Status Pie Chart - Grouped by Budget
     const statusData = React.useMemo(() => {

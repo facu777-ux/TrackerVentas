@@ -39,8 +39,6 @@ const ResultsTable = ({
     isMobile,
     searchTerm,
     setSearchTerm,
-    searchCarga,
-    setSearchCarga,
     displayCurrency = 'ARS',
     setDisplayCurrency,
     exchangeRate = 1000,
@@ -234,7 +232,7 @@ const ResultsTable = ({
     // EFECTO: Resetear paginación al cambiar filtros
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
+    }, [searchTerm, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
 
     const [expandedPresupuestos, setExpandedPresupuestos] = useState(new Set());
 
@@ -257,20 +255,13 @@ const ResultsTable = ({
     const filteredData = React.useMemo(() => {
         let base = data.filter(item => {
             const searchLower = searchTerm.toLowerCase();
-            const cargaLower = searchCarga.toLowerCase();
 
-            // Filtro Global
             const matchesGlobal = !searchTerm || (
                 item.NroPR?.toString().includes(searchLower) ||
                 item.NomCliente?.toLowerCase().includes(searchLower) ||
                 item.DescrpProd?.toLowerCase().includes(searchLower) ||
                 item.CodigoCarga?.toString().includes(searchLower) ||
                 item.FacturaAsociadaOP?.toLowerCase().includes(searchLower)
-            );
-
-            // Filtro específico de Carga
-            const matchesCarga = !searchCarga || (
-                item.CodigoCarga?.toString().toLowerCase().includes(cargaLower)
             );
 
             // Filtros Multi-Select estilo Excel con coincidencia exacta
@@ -297,7 +288,7 @@ const ResultsTable = ({
             const matchesDateLocal = (!startStr || (itemDateStr && itemDateStr >= startStr)) && 
                                    (!endStr || (itemDateStr && itemDateStr <= endStr));
             
-            return matchesGlobal && matchesCarga && matchesPR && matchesCliente && matchesMoneda && matchesDateLocal;
+            return matchesGlobal && matchesPR && matchesCliente && matchesMoneda && matchesDateLocal;
         });
 
         // Aplicar sub-filtro de estado si corresponde
@@ -311,7 +302,7 @@ const ResultsTable = ({
             });
         }
         return base;
-    }, [data, searchTerm, searchCarga, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
+    }, [data, searchTerm, activeFilter, estadoSubFilter, selectedPresupuestos, selectedClientes, selectedMonedas, filterStartDate, filterEndDate]);
 
     // Obtener valores únicos para los filtros de Excel
     const uniquePresupuestos = React.useMemo(() => {
@@ -942,7 +933,6 @@ const ResultsTable = ({
         setSortConfig({ key: null, direction: 'asc' });
         setEstadoSubFilter('all');
         setSearchTerm('');
-        setSearchCarga('');
         setSelectedPresupuestos(null);
         setSelectedClientes(null);
         setSelectedMonedas(null);
@@ -1698,38 +1688,28 @@ const ResultsTable = ({
                             className="search-input"
                         />
                     </div>
-                    <div className="search-bar-container secondary-search">
-                        <FaTruck style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                        <input
-                            type="text"
-                            placeholder="Buscar Nº Carga..."
-                            value={searchCarga}
-                            onChange={(e) => {
-                                setSearchCarga(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="search-input"
-                            style={{ paddingLeft: '2.5rem' }}
-                        />
-                    </div>
                     
-                    {/* Filtros NC / ND */}
-                    <label className={`nota-filter-toggle ${filterConNC ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Crédito">
-                        <input
-                            type="checkbox"
-                            checked={filterConNC}
-                            onChange={e => setFilterConNC(e.target.checked)}
-                        />
-                        Con NC
-                    </label>
-                    <label className={`nota-filter-toggle ${filterConND ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Débito">
-                        <input
-                            type="checkbox"
-                            checked={filterConND}
-                            onChange={e => setFilterConND(e.target.checked)}
-                        />
-                        Con ND
-                    </label>
+                    {/* Filtros NC / ND — solo visibles en la vista Cobrados */}
+                    {(activeFilter === 'pagados' || activeFilter === 'all') && (
+                        <>
+                            <label className={`nota-filter-toggle ${filterConNC ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Crédito">
+                                <input
+                                    type="checkbox"
+                                    checked={filterConNC}
+                                    onChange={e => setFilterConNC(e.target.checked)}
+                                />
+                                Con NC
+                            </label>
+                            <label className={`nota-filter-toggle ${filterConND ? 'active' : ''}`} title="Mostrar solo facturas con Nota de Débito">
+                                <input
+                                    type="checkbox"
+                                    checked={filterConND}
+                                    onChange={e => setFilterConND(e.target.checked)}
+                                />
+                                Con ND
+                            </label>
+                        </>
+                    )}
 
                     {/* Botón Expandir/Contraer Todo */}
                     <button
