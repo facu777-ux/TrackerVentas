@@ -1677,12 +1677,12 @@ const ResultsTable = ({
                     </h3>
                     <span className="results-count">
                         {groupedData.length} presupuesto{groupedData.length !== 1 ? 's' : ''} encontrado{groupedData.length !== 1 ? 's' : ''}
-                        {searchCriteria && searchCriteria.fechaDesde && searchCriteria.fechaHasta && (
-                            <span className="date-range-info" style={{ marginLeft: '8px', opacity: 0.8, fontWeight: '500' }}>
-                                ({new Date(searchCriteria.fechaDesde + 'T00:00:00').toLocaleDateString('es-AR')} - {new Date(searchCriteria.fechaHasta + 'T00:00:00').toLocaleDateString('es-AR')})
-                            </span>
-                        )}
                     </span>
+                    {searchCriteria && searchCriteria.fechaDesde && searchCriteria.fechaHasta && (
+                        <span className="date-range-info">
+                            Período consultado: ({new Date(searchCriteria.fechaDesde + 'T00:00:00').toLocaleDateString('es-AR')} - {new Date(searchCriteria.fechaHasta + 'T00:00:00').toLocaleDateString('es-AR')})
+                        </span>
+                    )}
                 </div>
                 <div className="table-actions">
                     <div className="search-bar-container">
