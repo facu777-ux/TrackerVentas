@@ -46,19 +46,19 @@
 .analytics-period-badge {
     background: var(--bg-accents-2);
     border: 1px solid var(--border-primary);
-    padding: 0 1rem;
-    height: 40px;
     border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-secondary);
+    padding: 0 1rem;
+    height: 48px;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
 }
 
 [data-theme='dark'] .analytics-period-badge {
     background: var(--bg-accents-1);
+    border-color: var(--border-secondary);
 }
 
 /* KPI Cards */
@@ -126,6 +126,7 @@
 
 .kpi-trend.up { color: var(--accent-green); }
 .kpi-trend.down { color: var(--accent-red); }
+.kpi-trend.neutral { color: var(--text-muted); }
 .trend-subtext { color: var(--text-muted); font-weight: 400; }
 
 /* Bento Grid */
@@ -257,12 +258,21 @@
     gap: 0.5rem;
     font-size: 0.75rem;
     font-weight: 700;
+    min-width: 0;
+}
+
+.legend-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .legend-percent {
     font-size: 0.75rem;
     font-weight: 800;
     color: var(--text-main);
+    flex-shrink: 0;
+    padding-left: 0.35rem;
 }
 
 /* Transactions Table Style */
@@ -305,6 +315,162 @@
     background: rgba(var(--primary-rgb), 0.1);
     color: var(--primary-light);
     border-color: rgba(var(--primary-rgb), 0.2);
+}
+
+.type-badge--top {
+    background: rgba(56, 178, 100, 0.12);
+    color: #2f9e58;
+    border-color: rgba(56, 178, 100, 0.3);
+}
+
+[data-theme='dark'] .type-badge--top {
+    background: rgba(56, 178, 100, 0.16);
+    color: #5fd889;
+    border-color: rgba(56, 178, 100, 0.3);
+}
+
+/* Rutas de Mayor Tráfico - ranked list */
+.rutas-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ruta-row {
+    display: grid;
+    grid-template-columns: 24px 32px 1fr auto auto;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: 14px;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.ruta-row:hover {
+    background: #f8f9fa;
+    transform: translateX(2px);
+}
+
+[data-theme='dark'] .ruta-row:hover {
+    background: #25262b;
+}
+
+.ruta-row--top {
+    background: rgba(56, 178, 100, 0.06);
+}
+
+[data-theme='dark'] .ruta-row--top {
+    background: rgba(56, 178, 100, 0.08);
+}
+
+.ruta-rank {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.ruta-row--top .ruta-rank {
+    color: #2f9e58;
+}
+
+.ruta-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f3f5;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+[data-theme='dark'] .ruta-icon {
+    background: #2c2e33;
+}
+
+.ruta-row--top .ruta-icon {
+    background: rgba(56, 178, 100, 0.14);
+    color: #2f9e58;
+}
+
+.ruta-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ruta-name {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.ruta-name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ruta-arrow {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.ruta-bar-track {
+    height: 5px;
+    border-radius: 3px;
+    background: #f1f3f5;
+    overflow: hidden;
+}
+
+[data-theme='dark'] .ruta-bar-track {
+    background: #2c2e33;
+}
+
+.ruta-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #38b264, #5fd889);
+    transition: width 0.4s ease;
+}
+
+.ruta-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+}
+
+.ruta-value {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--text-main);
+    white-space: nowrap;
+}
+
+.ruta-date {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .ruta-row {
+        grid-template-columns: 20px 28px 1fr auto;
+    }
+    .ruta-meta .ruta-date {
+        display: none;
+    }
+    .ruta-row .type-badge {
+        display: none;
+    }
 }
 
 /* Utils */
@@ -368,6 +534,191 @@
 }
 
 
+/* ── Selector de Periodo de Comparación ─────────────────────────── */
+.comp-period-selector {
+    position: relative;
+}
+
+.comp-period-btn {
+    background: var(--bg-accents-2);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 0 1rem;
+    height: 48px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.comp-period-btn:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-accents-1);
+}
+
+[data-theme='dark'] .comp-period-btn {
+    background: var(--bg-accents-1);
+    border-color: var(--border-secondary);
+}
+
+.comp-btn-label {
+    font-size: 0.58rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.comp-btn-main {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.comp-period-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg);
+    border: var(--card-border);
+    border-radius: 14px;
+    padding: 0.75rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    z-index: 9500;
+    min-width: 270px;
+}
+
+[data-theme='dark'] .comp-period-dropdown {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.comp-dropdown-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin: 0 0 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.comp-option {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.35rem;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-main);
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.comp-option:hover {
+    background: var(--bg-accents-1, #f8f9fa);
+}
+
+.comp-option input[type="radio"] {
+    accent-color: var(--primary-color);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Tooltip dentro del dropdown: aparece abajo-izquierda del ícono ? */
+.comp-help-icon {
+    flex-shrink: 0;
+}
+
+.comp-period-dropdown .help-tooltip.comp-tooltip {
+    bottom: auto;
+    top: calc(100% + 8px);
+    right: auto;
+    left: 0;
+    transform: none;
+    width: 220px;
+    text-align: left;
+    white-space: normal;
+    z-index: 10000;
+}
+
+.comp-period-dropdown .comp-help-icon:hover .comp-tooltip {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Fechas para modo Personalizado */
+.comp-custom-dates {
+    margin-top: 0.5rem;
+    padding: 0.65rem 0.5rem;
+    background: var(--bg-accents-1, #f8f9fa);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+[data-theme='dark'] .comp-custom-dates {
+    background: #25262b;
+}
+
+.comp-date-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.comp-date-field > label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    min-width: 38px;
+}
+
+.comp-date-field input[type="date"] {
+    flex: 1;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 0.28rem 0.5rem;
+    font-size: 0.78rem;
+    background: var(--card-bg);
+    color: var(--text-main);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.comp-date-field input[type="date"]:focus {
+    border-color: var(--primary-color);
+}
+
+.comp-apply-btn {
+    align-self: flex-end;
+    background: var(--primary-color);
+    color: var(--primary-fg, #fff);
+    border: none;
+    border-radius: 8px;
+    padding: 0.35rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+
+.comp-apply-btn:hover {
+    filter: brightness(1.1);
+}
+
 @media (max-width: 1440px) {
     .kpi-grid { gap: 0.4rem; }
     .kpi-card { padding: 0.6rem 0.75rem; }
@@ -377,6 +728,88 @@
 @media (max-width: 1024px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
     .bento-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ===== Mix de Negocio: selector de dimensión ===== */
+.mix-dim-selector {
+    position: relative;
+}
+
+.mix-dim-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--bg-accents-1, #f8f9fa);
+    border: var(--card-border);
+    border-radius: 10px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+}
+
+[data-theme='dark'] .mix-dim-btn {
+    background: #25262b;
+}
+
+.mix-dim-btn:hover {
+    border-color: var(--primary-color);
+}
+
+.mix-dim-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg);
+    border: var(--card-border);
+    border-radius: 14px;
+    padding: 0.5rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    z-index: 9500;
+    min-width: 190px;
+}
+
+[data-theme='dark'] .mix-dim-dropdown {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+/* Tooltip del donut */
+.mix-tooltip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: #1a1b1e;
+    color: #fff;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.mix-tooltip-amount {
+    color: #adb5bd;
+}
+
+.mix-tooltip-note {
+    color: #868e96;
+    font-style: italic;
+}
+
+/* Estado vacío del donut */
+.mix-empty {
+    height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
 }
 
 @media (max-width: 768px) {

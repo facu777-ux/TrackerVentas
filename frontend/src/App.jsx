@@ -52,6 +52,7 @@ function App() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const [analyticsSubView, setAnalyticsSubView] = useState('overview'); // 'overview' o 'detailed'
+  const [empresaAnalitica, setEmpresaAnalitica] = useState(null); // null = ambas, 'DIBIAG' o 'MULTIM'
   const [displayCurrency, setDisplayCurrency] = useState('ARS');
   const [exchangeRate, setExchangeRate] = useState(1000); // BNA
   const [chileExchangeRate, setChileExchangeRate] = useState(0); // SII Chile
@@ -909,6 +910,16 @@ function App() {
                     </div>
 
                     <div className="analytics-nav-actions">
+                      <select
+                        className="empresa-select"
+                        value={empresaAnalitica ?? ''}
+                        onChange={e => setEmpresaAnalitica(e.target.value || null)}
+                      >
+                        <option value="">Ambas empresas</option>
+                        <option value="DIBIAG">Dibiagi</option>
+                        <option value="MULTIM">Multimodal</option>
+                      </select>
+
                       <div className="header-rates-group">
                         <button className="header-bna">
                             <AlertCircle size={14} />
@@ -956,8 +967,9 @@ function App() {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.3, ease: "easeInOut" }}
                         >
-                          <AnalyticsDashboard 
-                            data={searchedData} 
+                          <AnalyticsDashboard
+                            data={searchedData}
+                            empresaFiltro={empresaAnalitica}
                             displayCurrency={displayCurrency}
                             setDisplayCurrency={setDisplayCurrency}
                             exchangeRate={exchangeRate}

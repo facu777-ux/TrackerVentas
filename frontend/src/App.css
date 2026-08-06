@@ -197,6 +197,29 @@
     display: flex;
 }
 
+.empresa-select {
+    background: var(--bg-surface, #f8f9fa);
+    border: 1px solid var(--border-primary, #e2e8f0);
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-main);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: auto;
+}
+
+.empresa-select:hover {
+    border-color: var(--primary-color);
+}
+
+.empresa-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
 /* Global Help Tooltips */
 .help-icon-wrapper {
     position: relative;

@@ -63,6 +63,14 @@ export const seguimientoAPI = {
     return response.data;
   },
 
+  // Reporte completo de rutas (histórico de tramos + volumen del período consultado)
+  getRutasReporte: async (fechaDesde, fechaHasta, empresa = null) => {
+    const response = await api.get("/seguimiento/rutas-reporte", {
+      params: { fechaDesde, fechaHasta, empresa },
+    });
+    return response.data;
+  },
+
   // Health check
   healthCheck: async () => {
     const response = await api.get("/health");

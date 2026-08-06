@@ -95,7 +95,7 @@ El proceso ahora muestra 5 pasos: 0. Solicitud de Presupuesto (si existe)
 
 ### Error: "D" no se reconoce como comando
 
-**Causa**: El carácter `&` en "I&D Proyects" causa problemas con npm scripts.
+**Causa (histórica)**: El carácter `&` en "I&D Proyectos" causaba problemas con npm scripts. La carpeta ya fue renombrada a "ID Proyectos", por lo que este problema ya no debería ocurrir, pero se deja documentado por si el proyecto se mueve nuevamente a una ruta con caracteres especiales.
 
 **Solución**: Usa los archivos `.bat` proporcionados o ejecuta directamente:
 

@@ -410,11 +410,12 @@ router.post("/", async (req, res) => {
                 gt.TipoOperacion,
                 gt.LocalizacionCargaOP,
                 gt.LocalizacionEntregaOP,
+                gt.FechaCarga AS FechaCargaOP,
                 gt.DomicilioCarga,
                 gt.DomicilioDescarga,
                 gt.DireccionRemitente,
                 gt.DireccionDestinatario,
-                
+
                 -- DATOS DE FACTURA (puede ser NULL si carga sin factura)
                 CASE 
                     WHEN gt.CodFac IS NULL OR gt.NroFac = 0 THEN 'Pendiente Facturación'
@@ -577,13 +578,14 @@ router.post("/", async (req, res) => {
                 gt.TipoOperacion,
                 gt.LocalizacionCargaOP,
                 gt.LocalizacionEntregaOP,
+                gt.FechaCarga,
                 gt.DomicilioCarga,
                 gt.DomicilioDescarga,
                 gt.DireccionRemitente,
                 gt.DireccionDestinatario,
-                
+
                 -- DATOS DE FACTURA
-                CASE 
+                CASE
                     WHEN gt.CodFac IS NULL OR gt.NroFac = 0 THEN 'Pendiente Facturación'
                     ELSE CONCAT(gt.CodFac, '-', gt.NroFac)
                 END,
@@ -888,6 +890,256 @@ router.get("/clientes", async (req, res) => {
             success: false,
             error: error.message,
         });
+    }
+});
+
+// GET /api/seguimiento/kpi-comparison - KPIs del periodo vs periodo anterior equivalente
+router.get("/kpi-comparison", async (req, res) => {
+    try {
+        const { fechaDesde, fechaHasta, empresa = null, compDesde = null, compHasta = null } = req.query;
+
+        if (!fechaDesde || !fechaHasta) {
+            return res.status(400).json({ success: false, error: 'fechaDesde y fechaHasta son requeridos' });
+        }
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input('FechaDesde', sql.Date, fechaDesde)
+            .input('FechaHasta', sql.Date, fechaHasta)
+            .input('Empresa',    sql.VarChar(10), empresa || null)
+            .input('CompDesde',  sql.Date, compDesde || null)
+            .input('CompHasta',  sql.Date, compHasta || null)
+            .query(`
+                DECLARE @DiasDuracion INT  = DATEDIFF(DAY, @FechaDesde, @FechaHasta)
+                DECLARE @PrevHasta    DATE = COALESCE(@CompHasta, DATEADD(DAY, -1, @FechaDesde))
+                DECLARE @PrevDesde    DATE = COALESCE(@CompDesde, DATEADD(DAY, -@DiasDuracion - 1, @FechaDesde))
+
+                SELECT Periodo,
+                    SUM(Monto) AS Operado,
+                    SUM(CASE WHEN EsFacturado = 1 THEN Monto ELSE 0 END) AS Facturado,
+                    SUM(CASE WHEN EsCobrado   = 1 THEN Monto ELSE 0 END) AS Cobrado
+                FROM (
+                    SELECT
+                        CASE WHEN h.FCRMVH_FCHMOV BETWEEN @FechaDesde AND @FechaHasta THEN 'current' ELSE 'previous' END AS Periodo,
+                        COALESCE(gi.USR_VIRT_TOTLIN, fi.FCRMVI_TOTLIN, 0) AS Monto,
+                        CASE WHEN gi.USR_GTMVII_CODFAC IS NOT NULL AND gi.USR_GTMVII_NROFAC > 0 THEN 1 ELSE 0 END AS EsFacturado,
+                        CASE WHEN rc.VTRMVC_NROFOR IS NOT NULL THEN 1 ELSE 0 END AS EsCobrado
+                    FROM FCRMVH h WITH (NOLOCK)
+                    OUTER APPLY (
+                        SELECT FCRMVI_NROITM AS NroItm FROM FCRMVI WITH (NOLOCK)
+                        WHERE FCRMVI_CODEMP=h.FCRMVH_CODEMP AND FCRMVI_CODFOR=h.FCRMVH_CODFOR AND FCRMVI_NROFOR=h.FCRMVH_NROFOR
+                        UNION
+                        SELECT USR_GTMVII_NROITM FROM USR_GTMVII WITH (NOLOCK)
+                        WHERE USR_GTMVII_CODEMP=h.FCRMVH_CODEMP AND USR_GTMVII_CODFOR=h.FCRMVH_CODFOR AND USR_GTMVII_NROFOR=h.FCRMVH_NROFOR
+                    ) itms
+                    LEFT JOIN FCRMVI fi WITH (NOLOCK)
+                        ON fi.FCRMVI_CODEMP=h.FCRMVH_CODEMP AND fi.FCRMVI_CODFOR=h.FCRMVH_CODFOR
+                        AND fi.FCRMVI_NROFOR=h.FCRMVH_NROFOR AND fi.FCRMVI_NROITM=itms.NroItm
+                    LEFT JOIN USR_GTMVII gi WITH (NOLOCK)
+                        ON gi.USR_GTMVII_CODEMP=h.FCRMVH_CODEMP AND gi.USR_GTMVII_CODFOR=h.FCRMVH_CODFOR
+                        AND gi.USR_GTMVII_NROFOR=h.FCRMVH_NROFOR AND gi.USR_GTMVII_NROITM=itms.NroItm
+                    LEFT JOIN USR_GTMVIH gh WITH (NOLOCK)
+                        ON gh.USR_GTMVIH_CODEMP=gi.USR_GTMVII_CODEMP AND gh.USR_GTMVIH_CODIGO=gi.USR_GTMVII_CODIGO
+                    LEFT JOIN VTRMVC rc WITH (NOLOCK)
+                        ON rc.VTRMVC_CODEMP=gi.USR_GTMVII_CODEMP AND rc.VTRMVC_MODFOR='VT' AND rc.VTRMVC_CODFOR='RC'
+                        AND rc.VTRMVC_MODAPL='VT' AND rc.VTRMVC_CODAPL=gi.USR_GTMVII_CODFAC AND rc.VTRMVC_NROAPL=gi.USR_GTMVII_NROFAC
+                    WHERE h.FCRMVH_MODFOR='FC' AND h.FCRMVH_CODFOR='PR'
+                      AND h.FCRMVH_CODEMP IN ('DIBIAG', 'MULTIM')
+                      AND (@Empresa IS NULL OR h.FCRMVH_CODEMP = @Empresa)
+                      AND h.FCRMVH_FCHMOV BETWEEN @PrevDesde AND @FechaHasta
+                      AND (gh.USR_GTMVIH_CODIGO IS NULL OR (ISNULL(gh.USR_GTMVIH_ANULAR,'N') <> 'S'
+                           AND (gh.USR_GTMVIH_MOTBAJ IS NULL OR gh.USR_GTMVIH_MOTBAJ = '')))
+                ) AS base
+                GROUP BY Periodo
+            `);
+
+        const current  = result.recordset.find(r => r.Periodo === 'current')  || null;
+        const previous = result.recordset.find(r => r.Periodo === 'previous') || null;
+
+        res.json({ success: true, current, previous });
+    } catch (error) {
+        console.error("Error en kpi-comparison:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/seguimiento/rutas-reporte - Reporte completo de rutas (histórico + período consultado)
+router.get("/rutas-reporte", async (req, res) => {
+    try {
+        const { fechaDesde, fechaHasta, empresa = null } = req.query;
+
+        if (!fechaDesde || !fechaHasta) {
+            return res.status(400).json({ success: false, error: 'fechaDesde y fechaHasta son requeridos' });
+        }
+
+        const pool = await getConnection();
+
+        const result = await pool.request()
+            .input('FechaDesde', sql.Date, fechaDesde)
+            .input('FechaHasta', sql.Date, fechaHasta)
+            .input('Empresa',    sql.VarChar(10), empresa || null)
+            .query(`
+                WITH EstadisticasTramos AS (
+                    -- Estadísticas históricas de USR_GTREVI con descripciones incluidas
+                    SELECT
+                        tr.USR_GTREVI_LOCINI AS CodigoOrigen,
+                        loc1.USR_GTTLOH_DESCRP AS DescripcionOrigen,
+                        tr.USR_GTREVI_LOCFIN AS CodigoDestino,
+                        loc2.USR_GTTLOH_DESCRP AS DescripcionDestino,
+                        COUNT(*) AS VecesImputadoHistorico,
+                        AVG(tr.USR_GTREVI_KMSTOT) AS KmsPromedio,
+                        MIN(tr.USR_GTREVI_KMSTOT) AS KmsMinimo,
+                        MAX(tr.USR_GTREVI_KMSTOT) AS KmsMaximo,
+                        MIN(tr.USR_GT_FECALT) AS PrimeraVezImputado,
+                        MAX(tr.USR_GT_FECALT) AS UltimaVezImputado
+                    FROM USR_GTREVI tr WITH (NOLOCK)
+                    INNER JOIN USR_GTTLOH loc1 WITH (NOLOCK)
+                        ON tr.USR_GTREVI_LOCINI = loc1.USR_GTTLOH_CODIGO
+                    INNER JOIN USR_GTTLOH loc2 WITH (NOLOCK)
+                        ON tr.USR_GTREVI_LOCFIN = loc2.USR_GTTLOH_CODIGO
+                    WHERE tr.USR_GTREVI_LOCINI <> tr.USR_GTREVI_LOCFIN
+                    GROUP BY
+                        tr.USR_GTREVI_LOCINI,
+                        loc1.USR_GTTLOH_DESCRP,
+                        tr.USR_GTREVI_LOCFIN,
+                        loc2.USR_GTTLOH_DESCRP
+                ),
+                KmsRealesPorOperacion AS (
+                    -- Suma de kms reales de todos los tramos por operación
+                    SELECT
+                        v.USR_GTMVIV_CODIGO AS CodigoOperacion,
+                        v.USR_GTMVIV_CODEMP AS CodigoEmpresa,
+                        SUM(v.USR_GTMVIV_KMSTOT) AS KmsReales
+                    FROM USR_GTMVIV v WITH (NOLOCK)
+                    WHERE v.USR_GTMVIV_KMSTOT IS NOT NULL
+                      AND v.USR_GTMVIV_KMSTOT > 0
+                    GROUP BY v.USR_GTMVIV_CODIGO, v.USR_GTMVIV_CODEMP
+                ),
+                VolumenOperado AS (
+                    -- Volumen con kms reales (SIN fallback a promedio histórico)
+                    SELECT
+                        gt.USR_GTMVIH_LOCINI AS CodigoOrigen,
+                        gt.USR_GTMVIH_LOCENT AS CodigoDestino,
+                        i.USR_GTMVII_COFLIS AS CoeficienteUtilizado,
+                        gc.GRTCOF_SIMBOL AS SimboloMoneda,
+                        COUNT(DISTINCT gt.USR_GTMVIH_CODIGO) AS OPRealizadas,
+                        SUM(i.USR_VIRT_TOTLIN) AS ImporteTotal,
+
+                        -- Cálculo del importe × kms SOLO para operaciones con datos reales
+                        SUM(
+                            CASE
+                                WHEN k.KmsReales IS NOT NULL
+                                THEN i.USR_VIRT_TOTLIN * k.KmsReales
+                                ELSE 0
+                            END
+                        ) AS ImporteKmReal,
+
+                        -- Importe de operaciones SIN datos de tramos (para análisis)
+                        SUM(
+                            CASE
+                                WHEN k.KmsReales IS NULL
+                                THEN i.USR_VIRT_TOTLIN
+                                ELSE 0
+                            END
+                        ) AS ImporteSinKms,
+
+                        -- Contador de operaciones con/sin datos de tramos
+                        COUNT(DISTINCT CASE WHEN k.KmsReales IS NOT NULL THEN gt.USR_GTMVIH_CODIGO END) AS OPConKmsReales,
+                        COUNT(DISTINCT CASE WHEN k.KmsReales IS NULL THEN gt.USR_GTMVIH_CODIGO END) AS OPSinKmsReales,
+
+                        MAX(gt.USR_GTMVIH_FCHCAR) AS UltimoViaje
+                    FROM USR_GTMVIH gt WITH (NOLOCK)
+                    INNER JOIN USR_GTMVII i WITH (NOLOCK)
+                        ON gt.USR_GTMVIH_CODIGO = i.USR_GTMVII_CODIGO
+                        AND gt.USR_GTMVIH_CODEMP = i.USR_GTMVII_CODEMP
+                    LEFT JOIN KmsRealesPorOperacion k
+                        ON gt.USR_GTMVIH_CODIGO = k.CodigoOperacion
+                        AND gt.USR_GTMVIH_CODEMP = k.CodigoEmpresa
+                    LEFT JOIN GRTCOF gc WITH (NOLOCK)
+                        ON gc.GRTCOF_CODCOF = i.USR_GTMVII_COFLIS
+                    WHERE gt.USR_GTMVIH_FCHCAR BETWEEN @FechaDesde AND @FechaHasta
+                      AND (@Empresa IS NULL OR gt.USR_GTMVIH_CODEMP = @Empresa)
+                      AND ISNULL(gt.USR_GTMVIH_ANULAR, 'N') <> 'S'
+                      AND (gt.USR_GTMVIH_MOTBAJ IS NULL OR gt.USR_GTMVIH_MOTBAJ = '')
+                    GROUP BY gt.USR_GTMVIH_LOCINI, gt.USR_GTMVIH_LOCENT, i.USR_GTMVII_COFLIS, gc.GRTCOF_SIMBOL
+                )
+                SELECT TOP 100
+                    -- Identificación de la ruta (resuelve descripción por código coalescido si el histórico no la tiene)
+                    COALESCE(et.CodigoOrigen, vo.CodigoOrigen)   AS CodigoOrigen,
+                    COALESCE(et.CodigoDestino, vo.CodigoDestino) AS CodigoDestino,
+                    COALESCE(et.DescripcionOrigen, loc_ori.USR_GTTLOH_DESCRP) AS Origen,
+                    COALESCE(et.DescripcionDestino, loc_dest.USR_GTTLOH_DESCRP) AS Destino,
+                    CONCAT(COALESCE(et.DescripcionOrigen, loc_ori.USR_GTTLOH_DESCRP, CAST(COALESCE(et.CodigoOrigen, vo.CodigoOrigen) AS VARCHAR)), ' -> ', COALESCE(et.DescripcionDestino, loc_dest.USR_GTTLOH_DESCRP, CAST(COALESCE(et.CodigoDestino, vo.CodigoDestino) AS VARCHAR))) AS TramoCompleto,
+                    vo.CoeficienteUtilizado,
+
+                    -- Estadísticas de imputación histórica
+                    et.VecesImputadoHistorico AS CantidadVecesImputadoHistorico,
+                    et.PrimeraVezImputado AS PrimeraVezImputadoHistorico,
+                    et.UltimaVezImputado AS UltimaVezImputadoHistorico,
+
+                    -- Distancias (km)
+                    et.KmsPromedio,
+                    et.KmsMinimo,
+                    et.KmsMaximo,
+
+                    -- Datos operacionales del período
+                    COALESCE(vo.OPRealizadas, 0) AS OperacionesEnPeriodo,
+                    COALESCE(vo.ImporteTotal, 0) AS ImporteEnPeriodo,
+                    vo.SimboloMoneda AS SimboloMoneda,
+                    COALESCE(vo.ImporteKmReal, 0) AS ImporteKmTotal,
+                    COALESCE(vo.ImporteSinKms, 0) AS ImporteSinDatosKms,
+
+                    -- Indicador de calidad del dato
+                    vo.OPConKmsReales AS OperacionesConKmsReales,
+                    vo.OPSinKmsReales AS OperacionesSinKmsReales,
+                    CASE
+                        WHEN vo.OPRealizadas IS NULL THEN NULL
+                        WHEN vo.OPSinKmsReales = 0 THEN '✅ Completo (100% con kms reales)'
+                        WHEN vo.OPSinKmsReales > 0 AND vo.OPConKmsReales > 0 THEN '⚠️ Incompleto (faltan ' + CAST(vo.OPSinKmsReales AS VARCHAR) + ' OP)'
+                        ELSE '❌ Sin datos de kms'
+                    END AS CalidadDato,
+
+                    -- Porcentaje de cobertura
+                    CAST(ROUND(100.0 * vo.OPConKmsReales / NULLIF(vo.OPRealizadas, 0), 1) AS DECIMAL(5,1)) AS PorcentajeConKms,
+
+                    vo.UltimoViaje,
+
+                    -- Grupo de disponibilidad de datos: ninguna ruta se pierde, solo se clasifica
+                    CASE
+                        WHEN et.CodigoOrigen IS NOT NULL AND vo.CodigoOrigen IS NOT NULL THEN 'Ruta activa'
+                        WHEN et.CodigoOrigen IS NULL     AND vo.CodigoOrigen IS NOT NULL THEN 'Ruta nueva'
+                        WHEN et.CodigoOrigen IS NOT NULL AND vo.CodigoOrigen IS NULL     THEN 'Sin actividad reciente'
+                    END AS GrupoDisponibilidad,
+
+                    -- Clasificación de criticidad
+                    CASE
+                        WHEN vo.OPRealizadas >= 5 AND et.VecesImputadoHistorico >= 10
+                            THEN 'RUTA CRÍTICA'
+                        WHEN vo.OPRealizadas >= 3 OR et.VecesImputadoHistorico >= 5
+                            THEN 'RUTA IMPORTANTE'
+                        WHEN vo.OPRealizadas > 0
+                            THEN 'RUTA ACTIVA'
+                        ELSE 'RUTA HISTÓRICA (sin operación reciente)'
+                    END AS Clasificacion
+                FROM EstadisticasTramos et
+                FULL OUTER JOIN VolumenOperado vo
+                    ON et.CodigoOrigen = vo.CodigoOrigen
+                    AND et.CodigoDestino = vo.CodigoDestino
+                LEFT JOIN USR_GTTLOH loc_ori WITH (NOLOCK)
+                    ON loc_ori.USR_GTTLOH_CODIGO = COALESCE(et.CodigoOrigen, vo.CodigoOrigen)
+                LEFT JOIN USR_GTTLOH loc_dest WITH (NOLOCK)
+                    ON loc_dest.USR_GTTLOH_CODIGO = COALESCE(et.CodigoDestino, vo.CodigoDestino)
+                ORDER BY
+                    ImporteKmTotal DESC,
+                    OperacionesEnPeriodo DESC,
+                    CantidadVecesImputadoHistorico DESC;
+            `);
+
+        res.json({ success: true, data: result.recordset });
+    } catch (error) {
+        console.error("Error en rutas-reporte:", error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
